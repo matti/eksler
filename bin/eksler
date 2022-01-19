@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+_err() {
+  1>&2 echo "err: $@"
+  exit 1
+}
+
+_forever() {
+  while true; do
+    echo "_forever: $@"
+    $@ && break
+    sleep 1
+  done
+}
+
+_never() {
+  while true; do
+    echo "_never: $@"
+    $@ || break
+    sleep 1
+  done
+}
+
+_output() {
+  echo " -- $@"
+}
+
+_done() {
+  echo ""
+  _output "DONE"
+}
+
+# eksctl utils update-cluster-logging --enable-types={SPECIFY-YOUR-LOG-TYPES-HERE (e.g. all)} --region=eu-north-1 --cluster=test3
+
+export AWS_PAGER=""
+
+subcommand=${1:-}
+case "${subcommand}" in
+  list)
+    exec eksctl get cluster --all-regions -v 4
+  ;;
+esac
+
+region=$2
+cluster_name=$3
+case "${subcommand}" in
+  delete)
+    set +e
+      eksctl delete cluster --region=$region --name=$cluster_name
+    set -e
+
+    if aws --region $region cloudformation describe-stacks --stack-name=eksctl-$cluster_name-cluster; then
+      _forever aws --region $region cloudformation delete-stack --stack-name eksctl-$cluster_name-cluster
+    fi
+  ;;
+  create)
+    echo """
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: '$cluster_name'
+  region: '$region'
+  version: '1.21'
+
+kubernetesNetworkConfig:
+  ipFamily: IPv6
+
+addons:
+  - name: vpc-cni
+    version: latest
+  - name: coredns
+    version: latest
+  - name: kube-proxy
+    version: latest
+
+iam:
+  withOIDC: true
+""" >/tmp/eksler.cluster.$region.$cluster_name.yml
+    cat /tmp/eksler.cluster.$region.$cluster_name.yml
+    _forever eksctl create cluster -f /tmp/eksler.cluster.$region.$cluster_name.yml
+
+    $0 with $region $cluster_name autoscaler
+    $0 with $region $cluster_name pool 1 all-1-pre create
+  ;;
+  with)
+    withcommand=$4
+
+    export KUBECONFIG="$HOME/.kube/aws-eks-${region}-${cluster_name}"
+
+    if [ ! -f "${KUBECONFIG}" ]; then
+      $0 with $region $cluster_name kubeconfig
+    fi
+
+    case "${withcommand}" in
+      autoscaler)
+        helm repo add autoscaler https://kubernetes.github.io/autoscaler
+        helm upgrade --install autoscaler-1 autoscaler/cluster-autoscaler \lens
+          --set 'autoDiscovery.clusterName'=$cluster_name \
+          --set 'awsRegion'=$region \
+          --values autoscaler-1.yml
+      ;;
+      kubeconfig)
+        eksctl utils write-kubeconfig --cluster="${cluster_name}" --region="${region}" --kubeconfig="${KUBECONFIG}"
+      ;;
+      list)
+        json=$(eksctl get nodegroups --region="${region}" --cluster="${cluster_name}" --output=json)
+        echo $json > /tmp/eksler.last
+
+        echo $json | jq -r '.[].Name'
+      ;;
+      create|delete|get)
+        nodegroup=$5
+        case "${withcommand}" in
+          create)
+            exec eksctl create nodegroup --region="${region}" --cluster="${cluster_name}" \
+              --managed \
+              --asg-access \
+              --full-ecr-access \
+              --alb-ingress-access \
+              --name $nodegroup ${@:6}
+          ;;
+          delete)
+            _forever eksctl delete nodegroup --region="${region}" --cluster="${cluster_name}" "${nodegroup}"
+
+            _never $0 with "${region}" "${cluster_name}" get "${nodegroup}"
+          ;;
+          get)
+            exec eksctl get nodegroup --region="${region}" --cluster="${cluster_name}" ${@:5}
+          ;;
+        esac
+      ;;
+      kubectl|k)
+        exec kubectl ${@:5}
+      ;;
+      cleanup|pool)
+        generation=$5
+
+        case "${withcommand}" in
+          cleanup)
+            pools=$($0 with $region $cluster_name list)
+            for pool in $pools; do
+              case $pool in
+                g-$generation-*)
+                  echo "keep $pool"
+                ;;
+                *)
+                  echo "delete $pool"
+                  $0 with $region $cluster_name delete $pool
+                ;;
+              esac
+            done
+
+            _done
+          ;;
+          pool)
+            pool_name=$6
+            poolcommand=$7
+            case "${poolcommand}" in
+              create)
+                revision=$(date +"%Y-%m-%d-%H-%M-%S")
+                name="g-$generation-$pool_name-$revision"
+
+                # min nodes 2 ? https://github.com/weaveworks/eksctl/issues/4607
+                case "${pool_name}" in
+                  x-1-pre)
+                    $0 with "${region}" "${cluster_name}" create $name \
+                      --spot \
+                      \
+                      --instance-types=t3a.medium \
+                      --nodes-min=1 --nodes-max=32 \
+                      --node-volume-type=gp3 --node-volume-size=10 \
+                      \
+                      --node-labels="autoscaler=yes"
+
+                    $0 with "${region}" "${cluster_name}" pool $generation $pool_name delete-all-but $name
+                  ;;
+                  all-1-pre)
+                    $0 with "${region}" "${cluster_name}" create $name \
+                      --spot \
+                      \
+                      --instance-prefix=all1prefix \
+                      --instance-name=all1name \
+                      \
+                      --instance-types=t3a.medium,t3a.large,t3a.xlarge,t3a.2xlarge \
+                      --nodes-min=1 --nodes-max=32 \
+                      --node-volume-type=gp3 --node-volume-size=10 \
+                      \
+                      --max-pods-per-node 10 \
+                      \
+                      --node-labels="preemptible=yes,regular=yes,bot=yes,workload=yes,kluster=yes,cluster=yes,sticky=yes,cluster_name=test1,region_name=aws"
+
+                    $0 with "${region}" "${cluster_name}" pool $generation $pool_name delete-all-but $name
+                  ;;
+                esac
+              ;;
+              delete-all-but)
+                keep_name=$8
+                pools=$($0 with $region $cluster_name list)
+                for pool in $pools; do
+                  case $pool in
+                    $keep_name)
+                      echo "keep $pool"
+                    ;;
+                    g-${generation}-${pool_name}-*)
+                      echo "delete $pool"
+                      $0 with $region $cluster_name delete $pool
+                    ;;
+                    *)
+                      echo "ignore $pool"
+                    ;;
+                  esac
+                done
+              ;;
+            esac
+          ;;
+        esac
+      ;;
+      *)
+        _err "unknown with ${withcommand}"
+      ;;
+    esac
+  ;;
+  *)
+    _err "unknown subcommand ${subcommand}"
+  ;;
+esac
