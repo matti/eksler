@@ -45,6 +45,9 @@ esac
 region=$2
 cluster_name=$3
 case "${subcommand}" in
+  get)
+    exec eksctl get cluster --region=$region --name=$cluster_name
+  ;;
   delete)
     set +e
       eksctl delete cluster --region=$region --name=$cluster_name
@@ -55,7 +58,8 @@ case "${subcommand}" in
     fi
   ;;
   create)
-    echo """
+    if ! $0 get $region $cluster_name; then
+      echo """
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
@@ -78,28 +82,46 @@ addons:
 iam:
   withOIDC: true
 """ >/tmp/eksler.cluster.$region.$cluster_name.yml
-    cat /tmp/eksler.cluster.$region.$cluster_name.yml
-    _forever eksctl create cluster -f /tmp/eksler.cluster.$region.$cluster_name.yml
+      cat /tmp/eksler.cluster.$region.$cluster_name.yml
+      _forever eksctl create cluster -f /tmp/eksler.cluster.$region.$cluster_name.yml
+    else
+      _output "cluster already exists"
+    fi
 
-    $0 with $region $cluster_name autoscaler
-    $0 with $region $cluster_name pool 1 all-1-pre create
+    $0 with $region $cluster_name autoscaler-1
+
+    for pool in x-1-pre all-1-pre; do
+      (
+        _forever $0 with $region $cluster_name pool 1 $pool create
+
+        _done
+      ) 2>&1 | sed -le "s#^# -- pool: $pool: #;" &
+    done
+
+    _done
+    wait $(jobs -p)
   ;;
   with)
     withcommand=$4
 
     export KUBECONFIG="$HOME/.kube/aws-eks-${region}-${cluster_name}"
 
-    if [ ! -f "${KUBECONFIG}" ]; then
+    if [ ! -f "${KUBECONFIG}" ] && [ "${withcommand}" != "kubeconfig" ]; then
       $0 with $region $cluster_name kubeconfig
     fi
 
     case "${withcommand}" in
-      autoscaler)
-        helm repo add autoscaler https://kubernetes.github.io/autoscaler
-        helm upgrade --install autoscaler-1 autoscaler/cluster-autoscaler \lens
+      autoscaler-1)
+        helm repo add autoscaler-1 https://kubernetes.github.io/autoscaler
+        helm repo update
+        #https://github.com/kubernetes/autoscaler/blob/master/charts/cluster-autoscaler/Chart.yaml
+        helm upgrade --install autoscaler-1 autoscaler/cluster-autoscaler \
+          --namespace autoscaler-1 \
+          --create-namespace \
+          --version 9.11.0 \
+          --values autoscaler-1.yml \
           --set 'autoDiscovery.clusterName'=$cluster_name \
-          --set 'awsRegion'=$region \
-          --values autoscaler-1.yml
+          --set 'awsRegion'=$region
       ;;
       kubeconfig)
         eksctl utils write-kubeconfig --cluster="${cluster_name}" --region="${region}" --kubeconfig="${KUBECONFIG}"
@@ -114,12 +136,103 @@ iam:
         nodegroup=$5
         case "${withcommand}" in
           create)
-            exec eksctl create nodegroup --region="${region}" --cluster="${cluster_name}" \
-              --managed \
-              --asg-access \
-              --full-ecr-access \
-              --alb-ingress-access \
-              --name $nodegroup ${@:6}
+            label_pairs=""
+            for opt in ${@:6}; do
+              case $opt in
+                --instance-prefix=*)
+                  instance_prefix=${opt#*=}
+                ;;
+                --instance-name=*)
+                  instance_name=${opt#*=}
+                ;;
+                --label=*)
+                  label_pairs="$label_pairs ${opt#*=}"
+                ;;
+                --instance-selector-vcpus=*)
+                  instance_selector__vcpus=${opt#*=}
+                ;;
+                --instance-selector-memory=*)
+                  instance_selector__memory=${opt#*=}
+                ;;
+                --volume-size=*)
+                  volume_size=${opt#*=}
+                ;;
+                --volume-type=*)
+                  volume_type=${opt#*=}
+                ;;
+                --volume-iops=*)
+                  volume_iops=${opt#*=}
+                ;;
+                --volume-throughput=*)
+                  volume_throughput=${opt#*=}
+                ;;
+                --min-size=*)
+                  min_size=${opt#*=}
+                ;;
+                --max-size=*)
+                  max_size=${opt#*=}
+                ;;
+                --spot=*)
+                  spot=${opt#*=}
+                ;;
+                *)
+                  _err "unknown opt: $opt"
+                ;;
+              esac
+            done
+
+            instance_prefix=${instance_prefix:-}
+            instance_name=${instance_name:-}
+            labels_indented=""
+            for label_pair in $label_pairs; do
+              key=${label_pair%=*}
+              value=${label_pair#*=}
+
+              labels_indented="${labels_indented}\n      ${key}: '${value}'"
+            done
+
+            instance_selector__vcpus=${instance_selector__vcpus:-2}
+            instance_selector__memory=${instance_selector__memory:-2}
+            volume_size=${volume_size:-4}
+            volume_type=${volume_type:-gp3}
+            volume_iops=${volume_iops:-3000}
+            volume_throughput=${volume_throughput:-125}
+            min_size=${min_size:-0}
+            max_size=${max_size:-0}
+            spot=${spot:-true}
+
+            printf """apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: '$cluster_name'
+  region: '$region'
+
+managedNodeGroups:
+  - name: '$nodegroup'
+    instancePrefix: '$instance_prefix'
+    instanceName: '$instance_name'
+    labels: $labels_indented
+    instanceSelector:
+      vCPUs: $instance_selector__vcpus
+      memory: '$instance_selector__memory'
+    volumeType: '$volume_type'
+    volumeSize: $volume_size
+    volumeIOPS: $volume_iops
+    volumeThroughput: $volume_throughput
+    minSize: $min_size
+    maxSize: $max_size
+    spot: $spot
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+        imageBuilder: true
+        ebs: true
+        albIngress: true
+""" > /tmp/eksler.nodegroup.$cluster_name.$region.$nodegroup.yml
+            cat /tmp/eksler.nodegroup.$cluster_name.$region.$nodegroup.yml
+
+            exec eksctl create nodegroup -f /tmp/eksler.nodegroup.$cluster_name.$region.$nodegroup.yml
           ;;
           delete)
             _forever eksctl delete nodegroup --region="${region}" --cluster="${cluster_name}" "${nodegroup}"
@@ -162,34 +275,32 @@ iam:
                 revision=$(date +"%Y-%m-%d-%H-%M-%S")
                 name="g-$generation-$pool_name-$revision"
 
-                # min nodes 2 ? https://github.com/weaveworks/eksctl/issues/4607
                 case "${pool_name}" in
                   x-1-pre)
                     $0 with "${region}" "${cluster_name}" create $name \
-                      --spot \
-                      \
-                      --instance-types=t3a.medium \
-                      --nodes-min=1 --nodes-max=32 \
-                      --node-volume-type=gp3 --node-volume-size=10 \
-                      \
-                      --node-labels="autoscaler=yes"
+                      --instance-prefix=g-$generation \
+                      --instance-name=$pool_name \
+                      --min-size=2 --max-size=32 \
+                      --instance-selector-vcpus=2 --instance-selector-memory=2 \
+                      --volume-size=4 \
+                      --label=autoscaler=yes
 
                     $0 with "${region}" "${cluster_name}" pool $generation $pool_name delete-all-but $name
                   ;;
                   all-1-pre)
                     $0 with "${region}" "${cluster_name}" create $name \
-                      --spot \
-                      \
-                      --instance-prefix=all1prefix \
-                      --instance-name=all1name \
-                      \
-                      --instance-types=t3a.medium,t3a.large,t3a.xlarge,t3a.2xlarge \
-                      --nodes-min=1 --nodes-max=32 \
-                      --node-volume-type=gp3 --node-volume-size=10 \
-                      \
-                      --max-pods-per-node 10 \
-                      \
-                      --node-labels="preemptible=yes,regular=yes,bot=yes,workload=yes,kluster=yes,cluster=yes,sticky=yes,cluster_name=test1,region_name=aws"
+                      --instance-prefix=g-$generation \
+                      --instance-name=$pool_name \
+                      --min-size=1 --max-size=32 \
+                      --instance-selector-vcpus=32 --instance-selector-memory=64 \
+                      --volume-size=16 \
+                      --label=preemptible=yes \
+                      --label=regular=yes \
+                      --label=bot=yes \
+                      --label=workload=yes \
+                      --label=cluster=yes \
+                      --label=cluster_name=$cluster_name \
+                      --label=region_name=aws
 
                     $0 with "${region}" "${cluster_name}" pool $generation $pool_name delete-all-but $name
                   ;;
