@@ -1,37 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-_err() {
-  1>&2 echo "err: $@"
-  exit 1
-}
-
-_forever() {
-  while true; do
-    echo "_forever: $@"
-    $@ && break
-    sleep 1
-  done
-}
-
-_never() {
-  while true; do
-    echo "_never: $@"
-    $@ || break
-    sleep 1
-  done
-}
-
-_output() {
-  echo " -- $@"
-}
-
-_done() {
-  echo ""
-  _output "DONE"
-}
-
-# eksctl utils update-cluster-logging --enable-types={SPECIFY-YOUR-LOG-TYPES-HERE (e.g. all)} --region=eu-north-1 --cluster=test3
+. functions.sh
 
 export AWS_PAGER=""
 
@@ -42,30 +11,31 @@ case "${subcommand}" in
   ;;
 esac
 
-region=$2
-cluster_name=$3
+export REGION=$2
+export CLUSTER_NAME=$3
+
 case "${subcommand}" in
   get)
-    exec eksctl get cluster --region=$region --name=$cluster_name
+    exec eksctl get cluster --region=$REGION --name=$CLUSTER_NAME
   ;;
   delete)
     set +e
-      eksctl delete cluster --region=$region --name=$cluster_name
+      eksctl delete cluster --region=$REGION --name=$CLUSTER_NAME
     set -e
 
-    if aws --region $region cloudformation describe-stacks --stack-name=eksctl-$cluster_name-cluster; then
-      _forever aws --region $region cloudformation delete-stack --stack-name eksctl-$cluster_name-cluster
-    fi
+    # TODO: should first check if the stack deletion has failed?
+    # if aws --region $REGION cloudformation describe-stacks --stack-name=eksctl-$CLUSTER_NAME-cluster; then
+    #   _forever aws --region $REGION cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-cluster
+    # fi
   ;;
   create)
-    if ! $0 get $region $cluster_name; then
       echo """
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: '$cluster_name'
-  region: '$region'
+  name: '$CLUSTER_NAME'
+  region: '$REGION'
   version: '1.21'
 
 kubernetesNetworkConfig:
@@ -81,53 +51,68 @@ addons:
 
 iam:
   withOIDC: true
-""" >/tmp/eksler.cluster.$region.$cluster_name.yml
-      cat /tmp/eksler.cluster.$region.$cluster_name.yml
-      _forever eksctl create cluster -f /tmp/eksler.cluster.$region.$cluster_name.yml
+""" >/tmp/eksler.cluster.$REGION.$CLUSTER_NAME.yml
+
+    if ! $0 get $REGION $CLUSTER_NAME; then
+      cat /tmp/eksler.cluster.$REGION.$CLUSTER_NAME.yml
+      _forever eksctl create cluster -f /tmp/eksler.cluster.$REGION.$CLUSTER_NAME.yml
     else
       _output "cluster already exists"
     fi
-
-    $0 with $region $cluster_name autoscaler-1
-
-    for pool in x-1-pre all-1-pre; do
-      (
-        _forever $0 with $region $cluster_name pool 1 $pool create
-
-        _done
-      ) 2>&1 | sed -le "s#^# -- pool: $pool: #;" &
-    done
-
-    _done
-    wait $(jobs -p)
   ;;
   with)
     withcommand=$4
 
-    export KUBECONFIG="$HOME/.kube/aws-eks-${region}-${cluster_name}"
+    export KUBECONFIG="$HOME/.kube/aws-eks-${REGION}-${CLUSTER_NAME}"
 
     if [ ! -f "${KUBECONFIG}" ] && [ "${withcommand}" != "kubeconfig" ]; then
-      $0 with $region $cluster_name kubeconfig
+      $0 with $REGION $CLUSTER_NAME kubeconfig
     fi
 
+    # TODO: https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2469
+
     case "${withcommand}" in
-      autoscaler-1)
-        helm repo add autoscaler-1 https://kubernetes.github.io/autoscaler
-        helm repo update
-        #https://github.com/kubernetes/autoscaler/blob/master/charts/cluster-autoscaler/Chart.yaml
-        helm upgrade --install autoscaler-1 autoscaler/cluster-autoscaler \
-          --namespace autoscaler-1 \
-          --create-namespace \
-          --version 9.11.0 \
-          --values autoscaler-1.yml \
-          --set 'autoDiscovery.clusterName'=$cluster_name \
-          --set 'awsRegion'=$region
+      helm:*)
+        name=$5
+
+        case "${withcommand}" in
+          helm:fix)
+            _output "helm fix: $name"
+            exec $0 with $REGION $CLUSTER_NAME kubectl delete secret \
+              --namespace $name --ignore-not-found sh.helm.release.v1.$name.v1
+          ;;
+          helm:delete)
+            set +e
+              helm delete --namespace $name $name
+            set -e
+            _forever kubectl delete namespace $name --ignore-not-found
+          ;;
+          helm:apply)
+            repo=$6
+            chart=$7
+            version=$8
+
+            _output "helm apply: $name"
+            helm repo add $name --force-update $repo
+            _forever helm repo update
+
+            # TODO: paste this to https://github.com/helm/helm/issues/10026
+            envsubst < "helm/values/${name}.yml" | helm upgrade --install \
+              "${name}" "${name}/${chart}" \
+              --create-namespace --namespace "${name}" \
+              --version "${version}" \
+              -f -
+          ;;
+          *)
+            _err "unknown ${withcommand}"
+          ;;
+        esac
       ;;
       kubeconfig)
-        eksctl utils write-kubeconfig --cluster="${cluster_name}" --region="${region}" --kubeconfig="${KUBECONFIG}"
+        eksctl utils write-kubeconfig --cluster="${CLUSTER_NAME}" --region="${REGION}" --kubeconfig="${KUBECONFIG}"
       ;;
       list)
-        json=$(eksctl get nodegroups --region="${region}" --cluster="${cluster_name}" --output=json)
+        json=$(eksctl get nodegroups --region="${REGION}" --cluster="${CLUSTER_NAME}" --output=json)
         echo $json > /tmp/eksler.last
 
         echo $json | jq -r '.[].Name'
@@ -205,8 +190,8 @@ iam:
 kind: ClusterConfig
 
 metadata:
-  name: '$cluster_name'
-  region: '$region'
+  name: '$CLUSTER_NAME'
+  region: '$REGION'
 
 managedNodeGroups:
   - name: '$nodegroup'
@@ -229,18 +214,18 @@ managedNodeGroups:
         imageBuilder: true
         ebs: true
         albIngress: true
-""" > /tmp/eksler.nodegroup.$cluster_name.$region.$nodegroup.yml
-            cat /tmp/eksler.nodegroup.$cluster_name.$region.$nodegroup.yml
+""" > /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
+            cat /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
 
-            exec eksctl create nodegroup -f /tmp/eksler.nodegroup.$cluster_name.$region.$nodegroup.yml
+            exec eksctl create nodegroup -f /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
           ;;
           delete)
-            _forever eksctl delete nodegroup --region="${region}" --cluster="${cluster_name}" "${nodegroup}"
+            _forever eksctl delete nodegroup --region="${REGION}" --cluster="${CLUSTER_NAME}" "${nodegroup}"
 
-            _never $0 with "${region}" "${cluster_name}" get "${nodegroup}"
+            _never $0 with "${REGION}" "${CLUSTER_NAME}" get "${nodegroup}"
           ;;
           get)
-            exec eksctl get nodegroup --region="${region}" --cluster="${cluster_name}" ${@:5}
+            exec eksctl get nodegroup --region="${REGION}" --cluster="${CLUSTER_NAME}" ${@:5}
           ;;
         esac
       ;;
@@ -252,7 +237,7 @@ managedNodeGroups:
 
         case "${withcommand}" in
           cleanup)
-            pools=$($0 with $region $cluster_name list)
+            pools=$($0 with $REGION $CLUSTER_NAME list)
             for pool in $pools; do
               case $pool in
                 g-$generation-*)
@@ -260,7 +245,7 @@ managedNodeGroups:
                 ;;
                 *)
                   echo "delete $pool"
-                  $0 with $region $cluster_name delete $pool
+                  $0 with $REGION $CLUSTER_NAME delete $pool
                 ;;
               esac
             done
@@ -277,7 +262,7 @@ managedNodeGroups:
 
                 case "${pool_name}" in
                   x-1-pre)
-                    $0 with "${region}" "${cluster_name}" create $name \
+                    $0 with "${REGION}" "${CLUSTER_NAME}" create $name \
                       --instance-prefix=g-$generation \
                       --instance-name=$pool_name \
                       --min-size=2 --max-size=32 \
@@ -285,10 +270,10 @@ managedNodeGroups:
                       --volume-size=4 \
                       --label=autoscaler=yes
 
-                    $0 with "${region}" "${cluster_name}" pool $generation $pool_name delete-all-but $name
+                    $0 with "${REGION}" "${CLUSTER_NAME}" pool $generation $pool_name delete-all-but $name
                   ;;
                   all-1-pre)
-                    $0 with "${region}" "${cluster_name}" create $name \
+                    $0 with "${REGION}" "${CLUSTER_NAME}" create $name \
                       --instance-prefix=g-$generation \
                       --instance-name=$pool_name \
                       --min-size=1 --max-size=32 \
@@ -299,16 +284,16 @@ managedNodeGroups:
                       --label=bot=yes \
                       --label=workload=yes \
                       --label=cluster=yes \
-                      --label=cluster_name=$cluster_name \
+                      --label=CLUSTER_NAME=$CLUSTER_NAME \
                       --label=region_name=aws
 
-                    $0 with "${region}" "${cluster_name}" pool $generation $pool_name delete-all-but $name
+                    $0 with "${REGION}" "${CLUSTER_NAME}" pool $generation $pool_name delete-all-but $name
                   ;;
                 esac
               ;;
               delete-all-but)
                 keep_name=$8
-                pools=$($0 with $region $cluster_name list)
+                pools=$($0 with $REGION $CLUSTER_NAME list)
                 for pool in $pools; do
                   case $pool in
                     $keep_name)
@@ -316,7 +301,7 @@ managedNodeGroups:
                     ;;
                     g-${generation}-${pool_name}-*)
                       echo "delete $pool"
-                      $0 with $region $cluster_name delete $pool
+                      $0 with $REGION $CLUSTER_NAME delete $pool
                     ;;
                     *)
                       echo "ignore $pool"

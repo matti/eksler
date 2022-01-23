@@ -1,3 +1,8 @@
+awsRegion: ${REGION}
+
+autoDiscovery:
+  clusterName: ${CLUSTER_NAME}
+
 affinity:
   podAntiAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:

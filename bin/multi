@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+. functions.sh
+
+for cluster in nolla eka toka kolmas neljaes viides kuudes; do
+  (
+    _output "$cluster"
+#    _forever bin/main eu-north-1 $cluster 1
+    _done
+  ) 2>&1 | sed -le "s#^# ++ cluster: $cluster: #;" &
+done
+
+wait $(jobs -p)

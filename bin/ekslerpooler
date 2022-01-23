@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+. functions.sh
+
+subcommand="${1}"
+region="${2}"
+cluster_name="${3}"
+generation="${4}"
+
+case "${subcommand}" in
+  cleanup)
+    pools=$(bin/eksler with $region $cluster_name list)
+    for pool in $pools; do
+      case $pool in
+        g-$generation-*)
+          echo "keep $pool"
+        ;;
+        *)
+          echo "delete $pool"
+          (
+            bin/eksler with $region $cluster_name delete $pool
+            _done
+          ) 2>&1 | sed -le "s#^# ++ delete $pool: #;" &
+
+          wait $(jobs -p)
+          _done
+        ;;
+      esac
+    done
+  ;;
+  create)
+    pool_name=$5
+    revision=$(date +"%Y-%m-%d-%H-%M-%S")
+    name="g-$generation-$pool_name-$revision"
+
+    bin/eksler with "${region}" "${cluster_name}" create $name ${@:6}
+    $0 delete-all-but "${region}" "${cluster_name}" $generation $pool_name $name
+  ;;
+  delete-all-but)
+    pool_name=$5
+    keep_name=$6
+
+    pools=$(bin/eksler with $region $cluster_name list)
+    for pool in $pools; do
+      case $pool in
+        $keep_name)
+          _output "keep $pool"
+        ;;
+        g-${generation}-${pool_name}-*)
+          _output "delete $pool"
+          (
+            bin/eksler with $region $cluster_name delete $pool
+            _done
+          ) 2>&1 | sed -le "s#^# ++ delete $pool: #;" &
+        ;;
+        *)
+          _output "ignore $pool"
+        ;;
+      esac
+    done
+
+    wait $(jobs -p)
+    _done
+  ;;
+  *)
+    _err "unknown subcommand: $subcommand"
+  ;;
+esac
