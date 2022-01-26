@@ -10,7 +10,7 @@ _err() {
 _forever() {
   while true; do
     _output "_forever: $@"
-    $@ && break
+     eval "$@" && break
     sleep 1
   done
 }
@@ -18,9 +18,19 @@ _forever() {
 _never() {
   while true; do
     _output "_never: $@"
-    $@ || break
+    eval "$@" || break
     sleep 1
   done
+}
+
+_forever_any() {
+  while true; do
+    value=$(eval $@)
+    [ "$?" = "0" ] && [ "$value" != "" ] && break
+    sleep 1
+  done
+
+  echo "$value"
 }
 
 _done() {

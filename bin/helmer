@@ -15,11 +15,20 @@ case $subcommand in
   delete)
     _forever helm delete --namespace "${name}" "${name}"
   ;;
-  apply)
+  apply|create)
     repo=$3
     chart=$4
     version=$5
     values=$6
+
+    case $subcommand in
+      create)
+        if kubectl get ns "${name}"; then
+          _output "already created: ${name}"
+          exit 0
+        fi
+      ;;
+    esac
 
     _forever helm repo add "${name}" --force-update "${repo}"
     _forever helm repo update
