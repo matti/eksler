@@ -10,11 +10,9 @@ generation=$4
 case "${name}" in
   x-1-pre)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
-      --instance-prefix=g-$generation \
-      --instance-name=$name \
       --min-size=2 --max-size=32 \
       --instance-selector-vcpus=2 --instance-selector-memory=2 \
-      --volume-size=4 \
+      --volume-size=8 \
       --label=autoscaler=yes \
       --label=ingress=yes \
       --label=prometheus=yes \
@@ -22,17 +20,13 @@ case "${name}" in
   ;;
   all-1-pre)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
-      --instance-prefix=g-$generation \
-      --instance-name=$name \
       --min-size=1 --max-size=9 \
       --instance-selector-vcpus=2 --instance-selector-memory=2 \
-      --volume-size=4 \
+      --volume-size=8 \
       --label=others=yes
   ;;
   super-1-pre)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
-      --instance-prefix=g-$generation \
-      --instance-name=$name \
       --min-size=0 --max-size=32 \
       --instance-selector-vcpus=32 --instance-selector-memory=64 \
       --volume-size=16 \

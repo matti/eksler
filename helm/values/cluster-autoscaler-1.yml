@@ -17,8 +17,8 @@ affinity:
 extraArgs:
   expander: most-pods
   max-node-provision-time: 5m
-  scale-down-delay-after-add: 5m
-  scale-down-unneeded-time: 5m
+  scale-down-delay-after-add: 3m
+  scale-down-unneeded-time: 3m
 
 image:
   repository: k8s.gcr.io/autoscaling/cluster-autoscaler

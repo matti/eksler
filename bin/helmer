@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+. functions.sh
+
+subcommand=$1
+case $subcommand in
+  list)
+    exec helm list --all-namespaces
+  ;;
+esac
+
+name=$2
+case $subcommand in
+  delete)
+    _forever helm delete --namespace "${name}" "${name}"
+  ;;
+  apply)
+    repo=$3
+    chart=$4
+    version=$5
+    values=$6
+
+    _forever helm repo add "${name}" --force-update "${repo}"
+    _forever helm repo update
+
+    envsubst < "${values}" | _forever helm upgrade --install \
+      "${name}" "${name}/${chart}" \
+      --create-namespace --namespace "${name}" \
+      --version "${version}" \
+      -f -
+  ;;
+  *)
+    _err "unknown ${subcommand}"
+  ;;
+esac

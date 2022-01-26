@@ -27,17 +27,35 @@ case "${subcommand}" in
         ;;
       esac
     done
+
+    exit 0
+  ;;
+esac
+
+pool_name=$5
+case "${subcommand}" in
+  get)
+    pools=$(bin/eksler with "${region}" "${cluster_name}" list)
+    for pool in $pools; do
+      case "${pool}" in
+        g-$generation-$pool_name-*)
+          echo $pool
+        ;;
+      esac
+    done
   ;;
   create)
-    pool_name=$5
     revision=$(date +"%Y-%m-%d-%H-%M-%S")
     name="g-$generation-$pool_name-$revision"
 
-    bin/eksler with "${region}" "${cluster_name}" create $name ${@:6}
+    bin/eksler with "${region}" "${cluster_name}" create $name \
+      --instance-prefix=g-$generation \
+      --instance-name=$name \
+      ${@:6}
+
     $0 delete-all-but "${region}" "${cluster_name}" $generation $pool_name $name
   ;;
   delete-all-but)
-    pool_name=$5
     keep_name=$6
 
     pools=$(bin/eksler with $region $cluster_name list)

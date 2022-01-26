@@ -1,8 +1,24 @@
 controller:
-  kind: DaemonSet
-
   nodeSelector:
     ingress: "yes"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 12
+    targetCPUUtilizationPercentage: 50
+    targetMemoryUtilizationPercentage: 50
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: "app.kubernetes.io/name"
+                operator: In
+                values: #TODO: is this the name?
+                  - "ingress-nginx"
+          topologyKey: "kubernetes.io/hostname"
 
   # https://github.com/kubernetes/ingress-nginx/issues/8175
   service:
