@@ -61,7 +61,8 @@ _output "waiting for lb to respond ok:"
 _forever curl -fsL $lb_hostname
 
 ingress_hostname=$(_forever_any \
-  kubectl get ingress -n eksler-test-1 whoami --output=jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+  kubectl get ingress -n eksler-test-1 whoami \
+    --output=jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 )
 
 _output "waiting for ingress to respond ok:"
