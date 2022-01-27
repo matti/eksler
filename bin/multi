@@ -6,7 +6,8 @@ direction=$1
 prefix=$2
 amount=$3
 
-export POOLS="x-1-pre all-1-pre"
+export POOLS="${POOLS:-x-1-pre super-1-pre}"
+
 for ((i=0; i<amount; i++)); do
   name="$prefix-${i}"
   (

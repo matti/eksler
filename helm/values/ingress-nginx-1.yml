@@ -1,3 +1,5 @@
+# https://github.com/kubernetes/ingress-nginx/blob/main/charts/ingress-nginx/values.yaml
+
 controller:
   nodeSelector:
     ingress: "yes"
@@ -8,6 +10,24 @@ controller:
     maxReplicas: 12
     targetCPUUtilizationPercentage: 50
     targetMemoryUtilizationPercentage: 50
+
+  resources:
+    limits:
+      cpu: 1
+      memory: 128Mi
+    requests:
+      cpu: 1
+      memory: 128Mi
+
+  tolerations:
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 10
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 10
 
   affinity:
     podAntiAffinity:

@@ -6,36 +6,54 @@ name=$1
 region=$2
 cluster_name=$3
 generation=$4
+ami="ami-0740245292d53bfa2"
 
 case "${name}" in
   x-1-pre)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --ami=${ami} \
+      --spot=true \
       --min-size=2 --max-size=32 \
       --instance-selector-vcpus=2 --instance-selector-memory=2 \
       --volume-size=8 \
       --label=autoscaler=yes \
       --label=ingress=yes \
-      --label=prometheus=yes \
       --label=awslb=yes
   ;;
-  all-1-pre)
+  p-1-pre)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
-      --min-size=1 --max-size=9 \
-      --instance-selector-vcpus=2 --instance-selector-memory=2 \
+      --ami=${ami} \
+      --spot=true \
+      --min-size=1 --max-size=3 \
+      --instance-selector-vcpus=4 --instance-selector-memory=8 \
       --volume-size=8 \
-      --label=others=yes
+      --label=prometheus=yes
   ;;
-  super-1-pre)
+  cluster-1-pre)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
-      --min-size=0 --max-size=32 \
+      --ami=${ami} \
+      --spot=true \
+      --min-size=2 --max-size=9 \
+      --instance-selector-vcpus=2 --instance-selector-memory=4 \
+      --volume-size=8 \
+      --label=preemptible=yes \
+      --label=regular=yes \
+      --label=cluster=yes \
+      --label=cluster_name=${cluster_name} \
+      --label=region_name=aws
+  ;;
+  bot-1-pre)
+    # 6.8gb used
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --ami=${ami} \
+      --spot=true \
+      --min-size=1 --max-size=1 \
       --instance-selector-vcpus=32 --instance-selector-memory=64 \
-      --volume-size=16 \
+      --volume-size=8 \
       --label=preemptible=yes \
       --label=regular=yes \
       --label=bot=yes \
-      --label=workload=yes \
-      --label=cluster=yes \
-      --label=cluster_name=$cluster_name \
+      --label=cluster_name=${cluster_name} \
       --label=region_name=aws
   ;;
   *)

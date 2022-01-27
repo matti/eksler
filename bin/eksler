@@ -225,11 +225,19 @@ managedNodeGroups:
               printf """
     ami: ${ami}
     preBootstrapCommands:
-      - echo 'world' > /hello
+      - date
+      - echo 'changing root password'
+      - echo 'root:badpassword' | sudo chpasswd
+      - echo 'password changed'
+      - sudo yum install -y htop iotop nano screen
+      - sudo amazon-linux-extras install epel -y
+      - sudo yum install -y stress
+      - date
     overrideBootstrapCommand: |
       #!/bin/bash
+      echo wat > /tmp/eksler.wat
       /etc/eks/bootstrap.sh '$CLUSTER_NAME'
-""" /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
+""" >> /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
             elif [ "${ami_family:-}" != "" ]; then
               printf "    amiFamily: ${ami_family}\n" >> /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
             fi

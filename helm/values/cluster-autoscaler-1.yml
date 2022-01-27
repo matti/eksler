@@ -1,3 +1,4 @@
+# https://github.com/kubernetes/autoscaler/blob/master/charts/cluster-autoscaler/values.yaml
 awsRegion: ${REGION}
 
 autoDiscovery:
@@ -17,8 +18,16 @@ affinity:
 extraArgs:
   expander: most-pods
   max-node-provision-time: 5m
-  scale-down-delay-after-add: 3m
-  scale-down-unneeded-time: 3m
+  scale-down-delay-after-add: 10m
+  scale-down-unneeded-time: 10m
+
+resources:
+  limits:
+    cpu: 1
+    memory: 512Mi
+  requests:
+    cpu: 1
+    memory: 512Mi
 
 image:
   repository: k8s.gcr.io/autoscaling/cluster-autoscaler
@@ -28,7 +37,18 @@ image:
 nodeSelector:
   autoscaler: "yes"
 
-podDisruptionBudget:
-  maxUnavailable: 1
+tolerations:
+  - key: node.kubernetes.io/not-ready
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 10
+  - key: node.kubernetes.io/unreachable
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 10
 
-replicaCount: 3
+# podDisruptionBudget:
+#   maxUnavailable: 1
+
+#TODO:
+replicaCount: 1
