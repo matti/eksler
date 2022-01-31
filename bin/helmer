@@ -4,6 +4,7 @@ set -euo pipefail
 . functions.sh
 
 subcommand=$1
+
 case $subcommand in
   list)
     exec helm list --all-namespaces
@@ -15,11 +16,11 @@ case $subcommand in
   delete)
     _forever helm delete --namespace "${name}" "${name}"
   ;;
-  apply|create)
+  apply|create|replace)
     repo=$3
     chart=$4
     version=$5
-    values=$6
+    values=${@:6}
 
     case $subcommand in
       create)
@@ -28,16 +29,33 @@ case $subcommand in
           exit 0
         fi
       ;;
+      replace)
+        _forever kubectl delete ns --ignore-not-found "${name}"
+      ;;
     esac
 
     _forever helm repo add "${name}" --force-update "${repo}"
     _forever helm repo update
 
-    envsubst < "${values}" | _forever helm upgrade --install \
+    opts=""
+    tmpfiles=""
+    for value in $values; do
+      tmpfile=$(mktemp)
+      tmpfiles="${tmpfiles} ${tmpfile}"
+
+      envsubst < "${value}" > $tmpfile
+      opts="${opts} -f ${tmpfile}"
+    done
+
+    for tmpfile in $tmpfiles; do
+      cat $tmpfile
+    done
+
+    _forever helm upgrade --install \
       "${name}" "${name}/${chart}" \
       --create-namespace --namespace "${name}" \
       --version "${version}" \
-      -f -
+      $opts
   ;;
   *)
     _err "unknown ${subcommand}"

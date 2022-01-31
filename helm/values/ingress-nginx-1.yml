@@ -39,15 +39,3 @@ controller:
                 values: #TODO: is this the name?
                   - "ingress-nginx"
           topologyKey: "kubernetes.io/hostname"
-
-  # https://github.com/kubernetes/ingress-nginx/issues/8175
-  service:
-    ipFamilyPolicy:
-    ipFamilies:
-
-    annotations:
-      service.beta.kubernetes.io/aws-load-balancer-type: "external"
-      service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-      service.beta.kubernetes.io/aws-load-balancer-ip-address-type: "dualstack"
-      # ValidationError: Target type 'instance' is not supported with an IPv6 target group
-      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"

@@ -54,12 +54,20 @@ iam:
   withOIDC: true
 """ >/tmp/eksler.cluster.$REGION.$CLUSTER_NAME.yml
 
-    if [ "$network" = "ipv6" ]; then
-      echo """
+    case "$network" in
+      ipv6)
+        echo """
 kubernetesNetworkConfig:
   ipFamily: IPv6
 """ >>/tmp/eksler.cluster.$REGION.$CLUSTER_NAME.yml
-    fi
+      ;;
+      ipv4)
+        :
+      ;;
+      *)
+        _err "unknown network: $network"
+      ;;
+    esac
 
     if ! $0 get $REGION $CLUSTER_NAME; then
       cat /tmp/eksler.cluster.$REGION.$CLUSTER_NAME.yml
@@ -94,6 +102,25 @@ kubernetesNetworkConfig:
         echo $json > /tmp/eksler.last
 
         echo $json | jq -r '.[].Name'
+      ;;
+      cleanup)
+        stacks=$(aws --region $REGION cloudformation list-stacks --stack-status-filter=ROLLBACK_COMPLETE | jq -r '.StackSummaries[].StackName')
+
+        for stack in $stacks; do
+          case $stack in
+            eksctl-${CLUSTER_NAME}-nodegroup-*)
+              (
+                _forever aws --region $REGION cloudformation delete-stack --stack-name=$stack
+                _done
+              ) 2>&1 | sed -le "s#^#cleanup delete: $stack: #;" &
+            ;;
+            *)
+              _output "cleanup ignore: $stack"
+            ;;
+          esac
+        done
+
+        wait $(jobs -p)
       ;;
       create|delete|get)
         nodegroup=$5
@@ -146,6 +173,7 @@ kubernetesNetworkConfig:
                 ;;
                 --max-size=*)
                   max_size=${opt#*=}
+                  [ "${max_size}" -gt 450 ] && _err "max size ${max_size} greater than 450"
                 ;;
                 --spot=*)
                   spot=${opt#*=}
@@ -225,17 +253,23 @@ managedNodeGroups:
               printf """
     ami: ${ami}
     preBootstrapCommands:
-      - date
+      - date > /tmp/eksler.start
+      # - echo 'changing hostname'
+      # - printf '${nodegroup}-' > /tmp/eksler.hostname
+      # - curl 'http://169.254.169.254/latest/meta-data/instance-id' >> /tmp/eksler.hostname
+      # - cat /tmp/eksler.hostname | xargs hostnamectl set-hostname
+      # - hostname
+      # - echo 'hostname changed'
       - echo 'changing root password'
       - echo 'root:badpassword' | sudo chpasswd
       - echo 'password changed'
       - sudo yum install -y htop iotop nano screen
       - sudo amazon-linux-extras install epel -y
       - sudo yum install -y stress
-      - date
+      - date > /tmp/eksler.done
     overrideBootstrapCommand: |
       #!/bin/bash
-      echo wat > /tmp/eksler.wat
+      date > /tmp/eksler.overrideBootstrapCommand
       /etc/eks/bootstrap.sh '$CLUSTER_NAME'
 """ >> /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
             elif [ "${ami_family:-}" != "" ]; then

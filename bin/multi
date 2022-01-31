@@ -4,16 +4,18 @@ set -euo pipefail
 
 direction=$1
 prefix=$2
-amount=$3
+network=$3
+amount=$4
 
-export POOLS="${POOLS:-x-1-pre super-1-pre}"
+
+export POOLS="${POOLS:-x-1-pre cluster-1-pre bot-1-pre bot-2-pre bot-3-pre}"
 
 for ((i=0; i<amount; i++)); do
   name="$prefix-${i}"
   (
     case $direction in
       up)
-        _forever bin/main eu-north-1 $name ipv6 1
+        _forever bin/main eu-north-1 $name $network 1
       ;;
       down)
         bin/eksler delete eu-north-1 $name

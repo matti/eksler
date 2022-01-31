@@ -2,9 +2,12 @@
 set -euo pipefail
 . functions.sh
 
+network=$1
+
 _forever kubectl delete namespace eksler-test-1 --ignore-not-found
 
 _forever kubectl apply -f tests/eksler-test-1.yml
+_forever kubectl apply -f tests/eksler-test-1-${network}.yml
 
 export CURLOPT_DNS_CACHE_TIMEOUT=1
 

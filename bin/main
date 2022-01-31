@@ -10,13 +10,14 @@ generation="${4}"
 bin/eksler create $REGION $CLUSTER_NAME $network
 export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
 
-export POOLS=${POOLS:-x-1-pre p-1-pre cluster-1-pre bot-1-pre}
+export POOLS=${POOLS:-x-1-pre p-1-pre cluster-1-pre bot-1-pre bot-2-pre bot-3-pre}
 for pool in $POOLS; do
   (
     if [ "${POOLS_REFRESH:-}" != "yes" ]; then
       match=$(bin/ekslerpooler get $REGION $CLUSTER_NAME $generation $pool)
       if [ "$match" != "" ]; then
         _output "pool $pool already exists, skip"
+        exit 0
       fi
     fi
 
@@ -48,7 +49,7 @@ bin/helmer $helm_action \
 bin/helmer $helm_action \
   ingress-nginx-1 \
   https://kubernetes.github.io/ingress-nginx ingress-nginx 4.0.16 \
-  helm/values/ingress-nginx-1.yml
+  helm/values/ingress-nginx-1.yml helm/values/network/${network}/ingress-nginx-1.yml
 
 bin/helmer $helm_action \
   prometheus-1 \
@@ -56,8 +57,8 @@ bin/helmer $helm_action \
   helm/values/prometheus-1.yml
 
 
-if [ "${TEST_SKIP:-}" != "yes"]; then
-  bin/test
+if [ "${TEST_SKIP:-}" != "yes" ]; then
+  bin/test $network
 fi
 
 _done
