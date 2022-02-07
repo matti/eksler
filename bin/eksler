@@ -263,13 +263,14 @@ managedNodeGroups:
       - echo 'changing root password'
       - echo 'root:badpassword' | sudo chpasswd
       - echo 'password changed'
-      - sudo yum install -y htop iotop nano screen
+      - sudo yum install -y htop iotop nano screen bind-utils
       - sudo amazon-linux-extras install epel -y
       - sudo yum install -y stress
       - date > /tmp/eksler.done
     overrideBootstrapCommand: |
       #!/bin/bash
       date > /tmp/eksler.overrideBootstrapCommand
+      # /etc/eks/bootstrap.sh --kubelet-extra-args '--node-labels node-role.kubernetes.io/bool=yes' '$CLUSTER_NAME'
       /etc/eks/bootstrap.sh '$CLUSTER_NAME'
 """ >> /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
             elif [ "${ami_family:-}" != "" ]; then

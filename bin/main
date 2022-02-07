@@ -10,7 +10,10 @@ generation="${4}"
 bin/eksler create $REGION $CLUSTER_NAME $network
 export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
 
-export POOLS=${POOLS:-x-1-pre p-1-pre cluster-1-pre bot-1-pre bot-2-pre bot-3-pre}
+#export POOLS=${POOLS:-x-1-pre p-1-pre cluster-1-pre bot-0-pre bot-1-pre bot-2-pre bot-3-pre}
+#export POOLS=${POOLS:-x-1-pre p-1-pre cluster-1-pre bot-1-pre bot-2-pre bot-3-pre}
+export POOLS=${POOLS:-x-1-pre p-1-pre cluster-1-pre bot-0-pre}
+
 for pool in $POOLS; do
   (
     if [ "${POOLS_REFRESH:-}" != "yes" ]; then
@@ -24,7 +27,7 @@ for pool in $POOLS; do
     bin/pools $pool $REGION $CLUSTER_NAME $generation
 
     _done
-  ) 2>&1 | sed -le "s#^# ++ pool: $pool: #;" &
+  ) 2>&1 | sed -le "s#^# ++ pool [${SECONDS}]: $pool: #;" &
 done
 
 wait $(jobs -p)

@@ -36,6 +36,6 @@ controller:
             matchExpressions:
               - key: "app.kubernetes.io/name"
                 operator: In
-                values: #TODO: is this the name?
+                values:
                   - "ingress-nginx"
           topologyKey: "kubernetes.io/hostname"

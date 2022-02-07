@@ -47,8 +47,7 @@ tolerations:
     effect: NoExecute
     tolerationSeconds: 10
 
-# podDisruptionBudget:
-#   maxUnavailable: 1
+podDisruptionBudget:
+  maxUnavailable: 1
 
-#TODO:
-replicaCount: 1
+replicaCount: 3
