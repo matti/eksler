@@ -1,7 +1,6 @@
 clusterName: ${CLUSTER_NAME}
-server:
-  nodeSelector:
-    awslb: "yes"
+nodeSelector:
+  awslb: "yes"
 
 # MAYBEFIX: https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2071#issuecomment-998655678
 keepTLSSecret: true
