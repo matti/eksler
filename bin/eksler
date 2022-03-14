@@ -31,6 +31,12 @@ export REGION=$2
 export CLUSTER_NAME=$3
 
 case "${subcommand}" in
+  logging-enable)
+    exec eksctl utils update-cluster-logging --enable-types=controllerManager,scheduler --region=$REGION --cluster=$CLUSTER_NAME --approve
+  ;;
+  logging-disable)
+    exec eksctl utils update-cluster-logging --disable-types=all --region=$REGION --cluster=$CLUSTER_NAME --approve
+  ;;
   get)
     exec eksctl --verbose $EKSCTL_LOG_LEVEL get cluster --region=$REGION --name=$CLUSTER_NAME
   ;;

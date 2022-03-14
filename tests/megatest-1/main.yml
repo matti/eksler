@@ -16,6 +16,17 @@ kind: Namespace
 metadata:
   name: megatest-1
 ---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: megatest-1
+  namespace: megatest-1
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: megatest-1
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -48,7 +59,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mega
+  name: megatest-1
   namespace: megatest-1
 spec:
   replicas: 1

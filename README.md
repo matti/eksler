@@ -1,5 +1,39 @@
 # eksler
 
+internally eks creates spot isntance requests
+
+spot instance request might take time --> 5min or so too fast?
+
+in EC2 > Auto Scaling groups > eks-g-1-test-1-pre-2022-03-14-16-42-27-32bfc471-64f4-d7d5-fba3-6f171c45136d
+
+>Launching a new EC2 instance. Status Reason: Could not launch Spot Instances. MaxSpotInstanceCountExceeded - Max spot instance count exceeded. Launching EC2 instance failed.
+
+
+## issues
+
+https://github.com/kubernetes/autoscaler/issues/4052
+https://github.com/kubernetes/autoscaler/issues/3802
+
+
+# ca memory:
+  1030 pods:
+    - prometheus mem 4.3gb
+    - ca 204
+
+  1600 pods:
+  - prometheus mem 5gb
+  - ca mem 200mb
+
+  1600 pods again:
+   - promethe meme 7.5gb, cpu: 0.35
+   - ca mem 225mb
+
+  2000 pods:
+    - prometheus mem:, cpu:
+    - ca mem: 250mb, cpu:
+
+
+kubectl delete pod -n prometheus-1 -l app=prometheus,component=server
 ## features
   - `eksler create eu-north-1 ipv6|ipv4` - create ipv6 or ipv4 clusters without yaml
   - `eksler list`- lists all clusters in all regions
@@ -27,7 +61,6 @@ bin/eksler with $REGION $CLUSTER pool 1 all-1-pre create
 POOLS="bot-1-pre bot-2-pre bot-3-pre" POOL_REFRESH=no bin/main eu-north-1 eka-1 ipv6 1
 
 ## TODO
-  - eksctl utils update-cluster-logging --enable-types={SPECIFY-YOUR-LOG-TYPES-HERE (e.g. all)} --region=eu-north-1 --cluster=test3
   - cross-zone load balancing
   - https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.7/grpc_health_probe-linux-amd64
 
@@ -43,6 +76,10 @@ ami: ami-00b3d47c1f3493f2d # amazon-eks-node-1.21-v20220112
 
 bin/test-main         eu-north-1  test-1          ipv6  1 1.21
 bin/eksler delete     eu-north-1  test-1
+
+bin/test-main         eu-north-1  test-2          ipv6  1 1.21
+bin/eksler delete     eu-north-1  test-2
+
 
 bin/bot-main          us-east-1   putte-bot-1     ipv6  1 1.21
 bin/eksler delete     us-east-1   putte-bot-1

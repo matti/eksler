@@ -32,7 +32,8 @@ wait $(jobs -p)
 
 bin/eksler with $REGION $CLUSTER_NAME list
 
-kubectl delete ns megatest-1 --ignore-not-found
+# TODO: dangerous if scaled to large
+#kubectl delete ns megatest-1 --ignore-not-found
 kubectl apply -f tests/megatest-1
 
 bin/helmer install cluster-autoscaler-1
