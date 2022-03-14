@@ -1,0 +1,197 @@
+#!/usr/bin/env ruby
+$stdout.sync = true
+
+def puts_if_podname_matches line
+  puts line if line.match?($podname)
+end
+
+#lines = File.read("kak").split("\n")
+$podname=ARGV[0]
+
+raise "podname as first arg needed" unless $podname
+
+loop do
+  line=$stdin.gets
+
+  unless line
+    puts "no line (in file"
+    sleep 0.1
+    next
+  end
+
+  logline = begin
+    line.split("] ").last
+  rescue
+    puts "line exploded: '#{line}'"
+    exit 1
+  end
+
+  case logline
+  # waste:
+  when /^FLAG: --/
+  when /^Cluster Autoscaler /
+  when /^attempting to acquire leader lease/
+  when /^lock is held by /
+  when /^failed to acquire lease /
+  when /^successfully acquired lease /
+  when /type: 'Normal' reason: 'LeaderElection' /
+  when /^Starting reflector /
+  when /^Listing and watching /
+  when /^Building aws cloud provider/
+  when /^Using static instance type /
+  when /^Successfully load \d+ EC2 Instance Types/
+  when /^Extracted autoscaling options from/
+  when /^Registered cleanup signal handler/
+  when /^Found multiple availability zones for ASG /
+  when /^AcceptableRanges have not been populated yet. Skip checking/
+  when /^Fast evaluation: .* for removal/
+  when /^Pod .* can be moved to/
+  when /^Fast evaluation: node .* may be removed/
+  when /^Refresh cloud provider node instances cache finished, refresh took/
+  when /^Start refreshing cloud provider node instances cache/
+  when /^No candidates for scale down/
+  when /is not suitable for removal - cpu utilization too big/
+  when /^Scale down status:/
+  when /^Starting scale down/
+  when /^Starting main loop/
+  when /^Regenerating instance to ASG map for ASGs:/
+  when /^0 launch configurations to query/
+  when /^0 launch templates to query/
+  when /^Successfully queried 0 launch configurations/
+  when /^Successfully queried 0 launch templates/
+  when /^Refreshed ASG list, next refresh after/
+  when /status code: 400, request id:/
+  when /^Calculating unneeded nodes/
+  when /is deprecated in /
+  when /^No schedulable pods/
+  when /factory.go:\d+: Watch close - /
+  when /listers.go:\d+: Watch close - /
+  when /pod didn't trigger scale-up:/
+  when /^DeleteInstances was called: scheduling an ASG list refresh for next main loop evaluation/
+  when /reason: 'DeleteUnregistered' Removed unregistered node /
+  when / Some unregistered nodes were removed, skipping iteration/
+  when /^Function main took \d+.\d+s to complete/
+  when /^Detailed evaluation: .* for removal/
+  when /^Detailed evaluation: node .* may be removed/
+  when /reason: 'ScaleDown' Scale-down: removing node/
+  when /marked the node as toBeDeleted\/unschedulable/
+  when /type: 'Normal' reason: 'ScaleDown' deleting pod for node scale down/
+  when /^All pods removed from .*/
+  when /^Releasing taint {Key:DeletionCandidateOfClusterAutoscaler/
+  when /^Successfully released DeletionCandidateTaint on node .*/
+  when /: Scale-down: removing empty node .*/
+  when /^Skipping .* - node group min size reached/
+  when /^No pod can fit to/
+  when /^No expansion options/
+  when /^Pod .* is unschedulable/
+  when /^Filtered out 0 pods using hints/
+  when /^Node group .* is not ready for scaleup - backoff/
+  when /^Fast evaluation: node .* cannot be removed: not enough pod disruption budget to move/
+  when /^Removing autoscaler soft taint when creating template from node/
+  when /^Removing autoscaler taint when creating template from node/
+  when /^ToBeDeletedByClusterAutoscaler already present on node/
+  # mildly interesting below:
+  when /: Removed unregistered node/
+    puts line
+  when /^instance .* is detected as a placeholder, decreasing ASG requested size instead of deleting instance/
+    puts line
+  when /^Registering ASG /
+    #puts line
+  when /^Unregistered ASG /
+    #puts line
+  when /\d+ nodes found to be unremovable in simulation, will re-check them at/
+    #puts line
+  when /^Scale-down calculation: ignoring \d+ nodes unremovable in the last/
+    #puts line
+  when /^Finding additional \d+ candidates for scale down./
+    #puts line
+  when /^Scale up in group .* finished successfully in/
+    puts line
+  when /\d+ pods were kept as unschedulable based on caching/
+    #puts line
+  when /\d+ pods marked as unschedulable can be scheduled./
+    #puts line
+  when /^Upcoming \d+ nodes/
+    puts line
+  when /^Pod .* can\'t be scheduled on .*/
+    puts_if_podname_matches line
+  when /^\d+ other pods similar to .* can't be scheduled on/
+    #puts_if_podname_matches line
+  when /^Skipping node group .* - max size reached/
+    puts line
+  when /^Entry .* has expired/
+    # TODO: whats this?
+    #puts line
+  when /^Terminating EC2 instance:/
+    # puts line
+  when /^Updating ASG /
+  # interesting below:
+  when /^Found longUnregistered Nodes/
+    puts line
+  when /\d+ unregistered nodes present/
+    puts line
+  when /^Removing unregistered node/
+  when /: Failed to remove node/
+  when /^Failed to remove node/
+  when /^Failed to remove unregistered nodes: ScalingActivityInProgress:/
+  when /^Filtering out schedulables/
+  when /^Some unregistered nodes were removed, skipping iteration/
+  when /^Failed to remove unregistered nodes: ValidationError: Instance Id not found - No managed instance found for instance ID:/
+  when /^Nodegroup is nil for /
+  when /listers.go:\d+: forcing resync/
+  when /^Node .* - memory utilization /
+  when /^Node .* - cpu utilization /
+  when /^.* is unneeded since /
+  when /^.* was unneeded for /
+  when /^Successfully added DeletionCandidateTaint on node /
+  when /^Skipped adding\/removing soft taints on \d+ nodes - API call limit exceeded/
+  when /^Scale-down: removing empty node /
+  when /reason: 'ScaleDownEmpty' Scale-down: removing empty node/
+  when /reason: 'ScaleDown' node removed by cluster autoscaler/
+  when /^Successfully added ToBeDeletedTaint on node /
+  when /^Best option to resize: /
+  when /^Estimated \d+ nodes needed in /
+  when /^Final scale-up plan:/
+    puts line
+  when /^Scale-up: setting group /
+    puts line
+  when /^Setting asg .* size to \d+/
+  when /reason: 'ScaledUpGroup' Scale-up: setting group /
+  when /^Skipping event processing for unschedulable pods since there is a ScaleUp attempt this loop/
+  when /reason: 'TriggeredScaleUp' pod triggered scale-up:/
+  when /^Scale up in .* in \d+.\d+s/
+  when /^Pod .* marked as unschedulable can be scheduled on node .*. Ignoring in scale up./
+  when /^Schedulable pods present/
+  when /^Skipping .* from delete consideration - the node is currently being deleted/
+  when /^\d+ other pods are also unschedulable/
+  when /^Waited for \d+.\d+ms due to client-side throttling, not priority and fairness/
+  when /^Requested scale-up \(\d+\) exceeds node group set capacity, capping to \d+/
+    # Requested scale-up (83) exceeds node group set capacity, capping to 68
+    # hmm?
+    puts line
+  when /^Instance group .* has only \d+ instances created while requested count is \d+. Creating placeholder instances./
+  when /^Node .* should not be processed by cluster autoscaler \(no node group config\)/
+    # hmm?
+  when /^Scale-down: removing node .*, pods to reschedule: /
+    # HMM!?
+  when /: Scale-up: setting group .* size to \d+ instead of \d+/
+  when /^Scale-up timed out for node group .* after/
+    # HM??
+    puts line
+  when /Disabling scale-up for node group .* until/
+    # HMM??
+    puts line
+  when /reason: 'ScaleUpTimedOut' Nodes added to group .* failed to register within/
+    # HM???
+    puts line
+  else
+    puts ""
+    puts "NO IDEA:"
+    puts line
+    exit
+  end
+end
+
+
+
+#kubectl logs -f -n cluster-autoscaler-1 cluster-autoscaler-1-aws-cluster-autoscaler-65d579b8c8-2r68n | grep -v -e "is not suitable for removal" -e "Calculating unneeded nodes" -e ": Watch close -"  -e "No candidates for scale down" -e "Starting scale down" -e "Scale down status:" -e "Starting main loop" -e "Filtering out schedulables" -e "node group min size reached" -e "No schedulable pods" -e "No unschedulable pods" -e "- cpu utilization" -e "Filtered out " -e "0 pods were kept as unschedulable based on caching" -e "0 pods marked as unschedulable can be scheduled." -e "Start refreshing cloud provider node instances cache" -e "0 launch configurations to query" -e "0 launch templates to query" -e "Successfully queried 0 launch configurations" -e "Successfully queried 0 launch templates" -e "Refreshed ASG list" -e "Refresh cloud provider node instances cache finished" -e "due to client-side throttling" -e "marked as unschedulable can be scheduled on node template" -e "is unneeded since" -e "Schedulable pods present" -e "Regenerating instance to ASG map for ASGs" -e "forcing resync"

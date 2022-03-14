@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+leader_pod=$(kubectl get lease -n cluster-autoscaler-1 cluster-autoscaler --output=jsonpath='{.spec.holderIdentity}')
+
+kubectl logs -f -n cluster-autoscaler-1 $leader_pod
