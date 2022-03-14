@@ -7,8 +7,23 @@ export EKSCTL_LOG_LEVEL=${EKSCTL_LOG_LEVEL:-3}
 
 subcommand=${1:-}
 case "${subcommand}" in
+  ami)
+    region=$2
+    kubernetes_version=$3
+
+    exec aws ec2 describe-images \
+            --region "$region" \
+            --filters "Name=name,Values=*amazon-eks-node-${kubernetes_version}-*" "Name=architecture,Values=x86_64" \
+            --query "sort_by(Images, &CreationDate)[-1].ImageId" \
+            --output text
+  ;;
   list)
-    exec eksctl --verbose $EKSCTL_LOG_LEVEL get cluster --all-regions -v 4
+    region=${2:-}
+    if [ "$region" = "" ]; then
+      exec eksctl --verbose $EKSCTL_LOG_LEVEL get cluster --all-regions
+    else
+      exec eksctl --verbose $EKSCTL_LOG_LEVEL get cluster --region=$region
+    fi
   ;;
 esac
 
@@ -32,24 +47,28 @@ case "${subcommand}" in
   ;;
   create)
     network=${4}
+    kubernetes_version=${5}
+
+    # https://docs.aws.amazon.com/eks/latest/userguide/managing-vpc-cni.html
+    # https://docs.aws.amazon.com/eks/latest/userguide/managing-coredns.html
+    # https://docs.aws.amazon.com/eks/latest/userguide/managing-kube-proxy.html
 
     echo """
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: '$CLUSTER_NAME'
-  region: '$REGION'
-  version: '1.21'
+  name: '${CLUSTER_NAME}'
+  region: '${REGION}'
+  version: '${kubernetes_version}'
 
 addons:
   - name: vpc-cni
-    version: latest
+    version: latest     # NOTE: has to be present, otherwise some random version
   - name: coredns
-    version: latest
+    version: latest     # NOTE: has to be present, otherwise some random version
   - name: kube-proxy
-    version: latest
-
+    version: latest     # NOTE: has to be present, otherwise some random version
 iam:
   withOIDC: true
 """ >/tmp/eksler.cluster.$REGION.$CLUSTER_NAME.yml
@@ -90,6 +109,19 @@ kubernetesNetworkConfig:
     # TODO: https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2469
 
     case "${withcommand}" in
+      addons:list)
+        exec eksctl get addon --region=$REGION --cluster=$CLUSTER_NAME
+      ;;
+      addons:names)
+        exec eksctl get addon --region=$REGION --cluster=$CLUSTER_NAME --output json | jq -r '.[].Name'
+      ;;
+      addons:update)
+        for addon in $($0 with $REGION $CLUSTER_NAME addons:names); do
+          eksctl update addon --region=$REGION --cluster=$CLUSTER_NAME --name=$addon
+        done
+
+        exit 0
+      ;;
       kubeconfig)
         (
           exec eksctl --verbose $EKSCTL_LOG_LEVEL utils write-kubeconfig --cluster="${CLUSTER_NAME}" --region="${REGION}" --kubeconfig="${KUBECONFIG}"
@@ -127,6 +159,7 @@ kubernetesNetworkConfig:
         case "${withcommand}" in
           create)
             label_pairs=""
+            ami=""
             for opt in ${@:6}; do
               case $opt in
                 --instance-prefix=*)
@@ -186,6 +219,12 @@ kubernetesNetworkConfig:
 
             instance_prefix=${instance_prefix:-}
             instance_name=${instance_name:-}
+
+            if [ "$ami" = "" ]; then
+              # TODO: get-version from cluster
+              ami=$($0 ami $REGION 1.21)
+            fi
+
             labels_indented=""
             for label_pair in $label_pairs; do
               key=${label_pair%=*}
@@ -196,6 +235,10 @@ kubernetesNetworkConfig:
 
             instance_selector__vcpus=${instance_selector__vcpus:-2}
             instance_selector__memory=${instance_selector__memory:-2}
+
+            echo "instances from ec2-instance-selector:"
+            set -x
+            vendor/bin/ec2-instance-selector-darwin-arm64 --region=$REGION --vcpus=$instance_selector__vcpus --memory=$instance_selector__memory
 
             volume_size=${volume_size:-4}
             volume_type=${volume_type:-gp3}

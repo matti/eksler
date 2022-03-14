@@ -36,13 +36,21 @@ pool_name=$5
 case "${subcommand}" in
   get)
     pools=$(bin/eksler with "${region}" "${cluster_name}" list)
+    any=no
     for pool in $pools; do
       case "${pool}" in
         g-$generation-$pool_name-*)
           echo $pool
+          any=yes
         ;;
       esac
     done
+
+    if [ "$any" = "yes" ]; then
+      exit 0
+    else
+      exit 1
+    fi
   ;;
   create)
     revision=$(date +"%Y-%m-%d-%H-%M-%S")

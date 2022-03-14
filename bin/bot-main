@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+. functions.sh
+
+export REGION="${1}"
+export CLUSTER_NAME="${2}"
+network="${3}"
+generation="${4}"
+kubernetes_version="${5}"
+
+bin/eksler create $REGION $CLUSTER_NAME $network $kubernetes_version
+export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
+
+export POOLS=${POOLS:-x-1-pre p-1-pre cluster-1-pre bot-1-pre bot-2-pre}
+
+for pool in $POOLS; do
+  (
+    if [ "${POOLS_REFRESH:-}" != "yes" ]; then
+      if bin/ekslerpooler get $REGION $CLUSTER_NAME $generation $pool; then
+        _output "pool $pool already exists, skip"
+        exit 0
+      fi
+    fi
+
+    bin/bot-pools $pool $REGION $CLUSTER_NAME $generation
+
+    _done
+  ) 2>&1 | sed -le "s#^# ++ pool [${SECONDS}]: $pool: #;" &
+done
+
+wait $(jobs -p)
+
+bin/eksler with $REGION $CLUSTER_NAME list
+
+bin/helmer install cluster-autoscaler-1
+bin/helmer install prometheus-1
+
+_done
+echo ""

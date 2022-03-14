@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+. functions.sh
+
+network=$1
+
+_forever kubectl delete namespace eksler-test-1 --ignore-not-found
+
+_forever kubectl apply -f tests/eksler-test-1/main.yml
+_forever kubectl apply -f tests/eksler-test-1/${network}.yml
+
+export CURLOPT_DNS_CACHE_TIMEOUT=1
+
+while true; do
+  lb_hostname=$(_forever_any \
+      kubectl get service -n eksler-test-1 whoami-lb \
+        --output=jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+  )
+
+  _output "testing lb hostname: ${lb_hostname}"
+  curl --max-time 3 -fsL $lb_hostname && break
+  sleep 1
+done
+
+while true; do
+  ingress_hostname=$(_forever_any \
+    kubectl get ingress -n eksler-test-1 whoami \
+      --output=jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+  )
+
+  _output "testing ingress hostname: ${lb_hostname}"
+  curl --max-time 3 -fsL -H 'Host: todo' $ingress_hostname && break
+
+  sleep 5
+done
+
+_forever kubectl delete namespace eksler-test-1
+
+_done
+echo ""

@@ -1,0 +1,4 @@
+eksctl 0.86.0
+kubectl 1.23.4
+jq 1.6
+helm 3.8.0

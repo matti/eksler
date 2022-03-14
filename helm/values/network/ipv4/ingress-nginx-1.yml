@@ -1,8 +1,0 @@
-controller:
-  # https://github.com/kubernetes/ingress-nginx/issues/8175
-  service:
-    annotations:
-      service.beta.kubernetes.io/aws-load-balancer-type: "external"
-      service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-      service.beta.kubernetes.io/aws-load-balancer-ip-address-type: "ipv4"
-      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"

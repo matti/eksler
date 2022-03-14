@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+. functions.sh
+
+name=$1
+region=$2
+cluster_name=$3
+generation=$4
+
+case "${name}" in
+  x-1-pre)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --min-size=2 --max-size=32 \
+      --instance-selector-vcpus=2 --instance-selector-memory=2 \
+      --volume-size=8 \
+      --label=cluster-autoscaler=yes \
+      --label=aws-load-balancer=yes
+  ;;
+  redis-1-reg)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --min-size=1 --max-size=2 \
+      --instance-selector-vcpus=4 --instance-selector-memory=8 \
+      --volume-size=8 \
+      --label=nodepool=redis
+  ;;
+  browsers-1-pre)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --min-size=1 --max-size=1 \
+      --instance-selector-vcpus=32 --instance-selector-memory=64 \
+      --volume-size=16 \
+      --label=nodepool=browsers
+  ;;
+  browsers-2-pre)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --min-size=1 --max-size=450 \
+      --instance-selector-vcpus=48 --instance-selector-memory=96 \
+      --volume-size=24 \
+      --label=nodepool=browsers
+  ;;
+  browsers-3-pre)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --min-size=1 --max-size=450 \
+      --instance-selector-vcpus=64 --instance-selector-memory=128 \
+      --volume-size=32 \
+      --label=nodepool=browsers
+  ;;
+  *)
+    _err "unknown pool: $name"
+  ;;
+esac
