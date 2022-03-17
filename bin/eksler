@@ -31,6 +31,9 @@ export REGION=$2
 export CLUSTER_NAME=$3
 
 case "${subcommand}" in
+  cluster-version)
+    exec eksctl get cluster --region=$REGION $CLUSTER_NAME --output=json | jq -r '.[].Version'
+  ;;
   logging-enable)
     exec eksctl utils update-cluster-logging --enable-types=controllerManager,scheduler --region=$REGION --cluster=$CLUSTER_NAME --approve
   ;;
@@ -52,6 +55,12 @@ case "${subcommand}" in
     fi
   ;;
   create)
+    eksctl_version_expected="0.87.0"
+    eksctl_version_actual=$(eksctl version)
+    if [ "$eksctl_version_actual" != "$eksctl_version_expected" ]; then
+      _err "eksctl version is ${eksctl_version_actual} expected ${eksctl_version_expected}"
+    fi
+
     network=${4}
     kubernetes_version=${5}
 
@@ -77,14 +86,14 @@ addons:
     version: latest     # NOTE: has to be present, otherwise some random version
 iam:
   withOIDC: true
-""" >/tmp/eksler.cluster.$REGION.$CLUSTER_NAME.yml
+""" >/tmp/eksler.$REGION.cluster.$CLUSTER_NAME.yml
 
     case "$network" in
       ipv6)
         echo """
 kubernetesNetworkConfig:
   ipFamily: IPv6
-""" >>/tmp/eksler.cluster.$REGION.$CLUSTER_NAME.yml
+""" >>/tmp/eksler.$REGION.cluster.$CLUSTER_NAME.yml
       ;;
       ipv4)
         :
@@ -95,8 +104,8 @@ kubernetesNetworkConfig:
     esac
 
     if ! $0 get $REGION $CLUSTER_NAME; then
-      cat /tmp/eksler.cluster.$REGION.$CLUSTER_NAME.yml
-      _forever eksctl --verbose $EKSCTL_LOG_LEVEL create cluster -f /tmp/eksler.cluster.$REGION.$CLUSTER_NAME.yml
+      cat /tmp/eksler.$REGION.cluster.$CLUSTER_NAME.yml
+      _forever eksctl --verbose $EKSCTL_LOG_LEVEL create cluster -f /tmp/eksler.$REGION.cluster.$CLUSTER_NAME.yml
     else
       _output "cluster already exists"
     fi
@@ -130,13 +139,13 @@ kubernetesNetworkConfig:
       ;;
       kubeconfig)
         (
-          exec eksctl --verbose $EKSCTL_LOG_LEVEL utils write-kubeconfig --cluster="${CLUSTER_NAME}" --region="${REGION}" --kubeconfig="${KUBECONFIG}"
+          exec eksctl --verbose $EKSCTL_LOG_LEVEL utils write-kubeconfig --cluster="$CLUSTER_NAME" --region="$REGION" --kubeconfig="${KUBECONFIG}"
         ) 2>&1 >/dev/null
 
         echo $KUBECONFIG
       ;;
       list)
-        json=$(eksctl --verbose $EKSCTL_LOG_LEVEL get nodegroups --region="${REGION}" --cluster="${CLUSTER_NAME}" --output=json)
+        json=$(eksctl --verbose $EKSCTL_LOG_LEVEL get nodegroups --region="$REGION" --cluster="$CLUSTER_NAME" --output=json)
         echo $json > /tmp/eksler.last
 
         echo $json | jq -r '.[].Name'
@@ -160,9 +169,41 @@ kubernetesNetworkConfig:
 
         wait $(jobs -p)
       ;;
-      create|delete|get)
+      create|delete|get|tag)
         nodegroup=$5
         case "${withcommand}" in
+          tag)
+            asg=$(
+              aws eks describe-nodegroup --region $REGION --cluster-name $CLUSTER_NAME \
+                --nodegroup-name $nodegroup \
+                --query "nodegroup.resources.autoScalingGroups[0].name" \
+                --output text
+            )
+
+            labels=$(
+              aws eks describe-nodegroup --region $REGION --cluster-name $CLUSTER_NAME \
+                --nodegroup-name $nodegroup \
+                --query "nodegroup.labels" \
+                --output=json | jq -r 'to_entries[] | .key + "=" + .value'
+            )
+
+            for label in $labels; do
+              label_key=${label%=*}
+              label_value=${label#*=}
+
+              case $label_key in
+                alpha.eksctl.io*)
+                  echo "skip: $label"
+                  continue
+                ;;
+              esac
+
+              echo "tag: $label"
+
+              aws autoscaling create-or-update-tags --region $REGION \
+                --tags "ResourceId=${asg},ResourceType=auto-scaling-group,Key=k8s.io/cluster-autoscaler/node-template/label/${label_key},Value=${label_value},PropagateAtLaunch=true"
+            done
+          ;;
           create)
             label_pairs=""
             ami=""
@@ -227,9 +268,10 @@ kubernetesNetworkConfig:
             instance_name=${instance_name:-}
 
             if [ "$ami" = "" ]; then
-              # TODO: get-version from cluster
-              ami=$($0 ami $REGION 1.21)
+              cluster_version=$($0 cluster-version $REGION $CLUSTER_NAME)
+              ami=$($0 ami $REGION $cluster_version)
             fi
+            echo "cluster kubernetes version: '$cluster_version' and thefore AMI is '$ami'"
 
             labels_indented=""
             for label_pair in $label_pairs; do
@@ -251,7 +293,7 @@ kubernetesNetworkConfig:
             volume_iops=${volume_iops:-3000}
             volume_throughput=${volume_throughput:-125}
             min_size=${min_size:-0}
-            max_size=${max_size:-0}
+            max_size=${max_size:-450}
             spot=${spot:-true}
 
             printf """apiVersion: eksctl.io/v1alpha5
@@ -279,23 +321,23 @@ managedNodeGroups:
         imageBuilder: true
         ebs: true
         albIngress: true
-""" > /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
+""" > /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
 
             if [ "${instance_type:-}" != "" ]; then
-              printf "    instanceType: ${instance_type}\n" >> /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
+              printf "    instanceType: ${instance_type}\n" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
             elif [ "${instance_types:-}" != "" ]; then
-              printf "    instanceTypes:\n" >> /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
+              printf "    instanceTypes:\n" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
 
               IFS=','
               for instance_type in ${instance_types:-}; do
-                printf "      - ${instance_type}\n" >> /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
+                printf "      - ${instance_type}\n" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
               done
               IFS=' '
             else
               printf """    instanceSelector:
       vCPUs: $instance_selector__vcpus
       memory: '$instance_selector__memory'
-""" >> /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
+""" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
             fi
 
             if [ "${ami:-}" != "" ]; then
@@ -303,12 +345,6 @@ managedNodeGroups:
     ami: ${ami}
     preBootstrapCommands:
       - date > /tmp/eksler.start
-      # - echo 'changing hostname'
-      # - printf '${nodegroup}-' > /tmp/eksler.hostname
-      # - curl 'http://169.254.169.254/latest/meta-data/instance-id' >> /tmp/eksler.hostname
-      # - cat /tmp/eksler.hostname | xargs hostnamectl set-hostname
-      # - hostname
-      # - echo 'hostname changed'
       - echo 'changing root password'
       - echo 'root:badpassword' | sudo chpasswd
       - echo 'password changed'
@@ -318,25 +354,32 @@ managedNodeGroups:
       - date > /tmp/eksler.done
     overrideBootstrapCommand: |
       #!/bin/bash
-      date > /tmp/eksler.overrideBootstrapCommand
-      # /etc/eks/bootstrap.sh --kubelet-extra-args '--node-labels node-role.kubernetes.io/bool=yes' '$CLUSTER_NAME'
-      /etc/eks/bootstrap.sh '$CLUSTER_NAME'
-""" >> /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
+      date > /tmp/eksler.bootstrap.start
+      /etc/eks/bootstrap.sh "$CLUSTER_NAME" |& tee /tmp/eksler.bootstrap.output
+      echo "$?" > /tmp/eksler.bootstrap.status
+      date > /tmp/eksler.bootstrap.done
+""" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
             elif [ "${ami_family:-}" != "" ]; then
-              printf "    amiFamily: ${ami_family}\n" >> /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
+              printf "    amiFamily: ${ami_family}\n" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
             fi
 
-            cat /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
+            cat /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
 
-            exec eksctl --verbose $EKSCTL_LOG_LEVEL create nodegroup -f /tmp/eksler.nodegroup.$CLUSTER_NAME.$REGION.$nodegroup.yml
+            _forever eksctl --verbose $EKSCTL_LOG_LEVEL create nodegroup -f /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
+
+            if ! $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup"; then
+              _never echo "failed to create $nodegroup"
+            fi
+
+            _forever $0 with "$REGION" "$CLUSTER_NAME" tag $nodegroup
           ;;
           delete)
-            _forever eksctl --verbose $EKSCTL_LOG_LEVEL delete nodegroup --region="${REGION}" --cluster="${CLUSTER_NAME}" "${nodegroup}"
+            _forever eksctl --verbose $EKSCTL_LOG_LEVEL delete nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" "$nodegroup"
 
-            _never $0 with "${REGION}" "${CLUSTER_NAME}" get "${nodegroup}"
+            _never $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup"
           ;;
           get)
-            exec eksctl --verbose $EKSCTL_LOG_LEVEL get nodegroup --region="${REGION}" --cluster="${CLUSTER_NAME}" ${@:5}
+            exec eksctl --verbose $EKSCTL_LOG_LEVEL get nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" ${@:5}
           ;;
         esac
       ;;

@@ -11,7 +11,13 @@ kubernetes_version="${5}"
 bin/eksler create $REGION $CLUSTER_NAME $network $kubernetes_version
 export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
 
-export POOLS=${POOLS:-x-1-pre p-1-pre test-1-pre test-2-pre}
+kubectl apply -f tests/megatest-1
+
+bin/helmer install cluster-autoscaler-1
+bin/helmer install aws-load-balancer-controller-1
+bin/helmer install metrics-server-1
+
+export POOLS=${POOLS:-x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1 t-32-64-pre-p6-1 t-48-96-pre-p5-1 t-64-128-pre-p4-1}
 
 for pool in $POOLS; do
   (
@@ -32,13 +38,6 @@ wait $(jobs -p)
 
 bin/eksler with $REGION $CLUSTER_NAME list
 
-# TODO: dangerous if scaled to large
-#kubectl delete ns megatest-1 --ignore-not-found
-kubectl apply -f tests/megatest-1
-
-bin/helmer install cluster-autoscaler-1
-bin/helmer install prometheus-1
-bin/helmer install aws-load-balancer-controller-1
 
 # TODO: https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2039
 # https://aws.amazon.com/premiumsupport/knowledge-center/eks-alb-ingress-controller-fargate/

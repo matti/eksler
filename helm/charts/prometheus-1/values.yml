@@ -1036,10 +1036,10 @@ server:
   ##
   resources:  # helmer
     limits:
-      memory: 8192Mi # helmer: seems to not OOMKill but stay under (with 2000 pods)
+      memory: 14Gi # helmer: 5000 pods OOMKilled with 8Gi
     requests:
       cpu: 100m
-      memory: 8192Mi # helmer: seems to not OOMKill but stay under (with 2000 pods)
+      memory: 14Gi # helmer: 5000 pods OOMKilled with 8Gi
 
   # Required for use in managed kubernetes clusters (such as AWS EKS) with custom CNI (such as calico),
   # because control-plane managed by AWS cannot communicate with pods' IP CIDR and admission webhooks are not working

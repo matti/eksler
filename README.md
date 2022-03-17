@@ -1,36 +1,14 @@
 # eksler
 
-internally eks creates spot isntance requests
+stuff with eksctl, helm etc.
 
 spot instance request might take time --> 5min or so too fast?
-
 in EC2 > Auto Scaling groups > eks-g-1-test-1-pre-2022-03-14-16-42-27-32bfc471-64f4-d7d5-fba3-6f171c45136d
-
->Launching a new EC2 instance. Status Reason: Could not launch Spot Instances. MaxSpotInstanceCountExceeded - Max spot instance count exceeded. Launching EC2 instance failed.
-
 
 ## issues
 
 https://github.com/kubernetes/autoscaler/issues/4052
 https://github.com/kubernetes/autoscaler/issues/3802
-
-
-# ca memory:
-  1030 pods:
-    - prometheus mem 4.3gb
-    - ca 204
-
-  1600 pods:
-  - prometheus mem 5gb
-  - ca mem 200mb
-
-  1600 pods again:
-   - promethe meme 7.5gb, cpu: 0.35
-   - ca mem 225mb
-
-  2000 pods:
-    - prometheus mem:, cpu:
-    - ca mem: 250mb, cpu:
 
 
 kubectl delete pod -n prometheus-1 -l app=prometheus,component=server
@@ -61,18 +39,17 @@ bin/eksler with $REGION $CLUSTER pool 1 all-1-pre create
 POOLS="bot-1-pre bot-2-pre bot-3-pre" POOL_REFRESH=no bin/main eu-north-1 eka-1 ipv6 1
 
 ## TODO
+  - does topologySpreadConstraints work with skew 1
   - cross-zone load balancing
   - https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.7/grpc_health_probe-linux-amd64
 
 ## notes
 
-ami: ami-0740245292d53bfa2 # amazon-eks-node-1.21-v20220123
-ami: ami-00b3d47c1f3493f2d # amazon-eks-node-1.21-v20220112
-
 6.8gb used disk after bot
 
-
 ## envs
+
+POOLS="test-16-32-pre-1 test-32-64-pre-1 test-64-128-pre-1"
 
 bin/test-main         eu-north-1  test-1          ipv6  1 1.21
 bin/eksler delete     eu-north-1  test-1
@@ -80,6 +57,8 @@ bin/eksler delete     eu-north-1  test-1
 bin/test-main         eu-north-1  test-2          ipv6  1 1.21
 bin/eksler delete     eu-north-1  test-2
 
+bin/test-main         eu-north-1  test-3          ipv6  1 1.21
+bin/eksler delete     eu-north-1  test-3
 
 bin/bot-main          us-east-1   putte-bot-1     ipv6  1 1.21
 bin/eksler delete     us-east-1   putte-bot-1
@@ -87,30 +66,3 @@ bin/eksler delete     us-east-1   putte-bot-1
 bin/bot-main          eu-north-1  com-bot-1       ipv6  1 1.21
 bin/eksler delete     eu-north-1  com-bot-1
 
-
-
-## logs:
-
-template-node-for-eks-g-1-browsers-1-pre-2022-02-28-19-05-30-d8bfa0a6-5e5f-c2d0-d58b-c3032fcc8a82-1578394472169816748-upcoming-11. Ignoring in scale up.
-I0228 19:58:27.789987       1 filter_out_schedulable.go:157] Pod default.truevisitor-68d84f96b8-62c54 marked as unschedulable can be scheduled on node
-
-I0228 19:58:28.734151       1 scale_up.go:300] Pod truevisitor-68d84f96b8-9rnt2 can't be scheduled on eks-g-1-redis-1-reg-2022-02-28-19-36-03-c0bfa0b4-5506-6b49-69fb-76c31b3a6aee, predicate checking error: node(s) didn't match Pod's node affinity/selector; predicateName=NodeAffinity; reasons: node(s) didn't match Pod's node affinity/selector; debugInfo=
-
-
-I0228 19:58:38.995669       1 static_autoscaler.go:228] Starting main loop
-I0228 19:58:39.000593       1 static_autoscaler.go:319] 152 unregistered nodes present
-I0228 19:58:39.000616       1 static_autoscaler.go:592] Removing unregistered node aws:///eu-north-1b/i-placeholder-eks-g-1-browsers-2-pre-2022-02-28-19-05-30-4abfa0a6-52fa-e575-6f73-ec225a684fc8-26
-I0228 19:58:39.000684       1 auto_scaling_groups.go:265] instance i-placeholder-eks-g-1-browsers-2-pre-2022-02-28-19-05-30-4abfa0a6-52fa-e575-6f73-ec225a684fc8-26 is detected as a placeholder, decreasing ASG requested size instead of deleting instance
-I0228 19:58:39.000695       1 auto_scaling_groups.go:219] Setting asg eks-g-1-browsers-2-pre-2022-02-28-19-05-30-4abfa0a6-52fa-e575-6f73-ec225a684fc8 size to 91
-I0228 19:58:39.161948       1 request.go:600] Waited for 185.261453ms due to client-side throttling, not priority and fairness, request: POST:https://[fd79:be1e:8d79::1]:443/api/v1/namespaces/default/events
-I0228 19:58:39.172605       1 event_sink_logging_wrapper.go:48] Event(v1.ObjectReference{Kind:"Pod", Namespace:"default", Name:"truevisitor-68d84f96b8-c5f8r", UID:"84183352-dc62-41c5-a0f8-ca09301a35a1", APIVersion:"v1", ResourceVersion:"81970", FieldPath:""}): type: 'Normal' reason: 'TriggeredScaleUp' pod triggered scale-up: [{eks-g-1-browsers-2-pre-2022-02-28-19-05-30-4abfa0a6-52fa-e575-6f73-ec225a684fc8 77->82 (max: 450)}]
-I0228 19:58:39.173029       1 aws_manager.go:297] Some ASG instances might have been deleted, forcing ASG list refresh
-I0228 19:58:39.247491       1 auto_scaling_groups.go:351] Regenerating instance to ASG map for ASGs: [eks-g-1-browsers-0-pre-2022-02-28-19-05-30-babfa0a6-3bbc-8cc8-d32a-60d6e19b2511 eks-g-1-browsers-1-pre-2022-02-28-19-05-30-d8bfa0a6-5e5f-c2d0-d58b-c3032fcc8a82 eks-g-1-browsers-2-pre-2022-02-28-19-05-30-4abfa0a6-52fa-e575-6f73-ec225a684fc8 eks-g-1-browsers-3-pre-2022-02-28-19-05-30-06bfa0a6-21dd-fdda-72d0-1912158c995d eks-g-1-redis-1-reg-2022-02-28-19-36-03-c0bfa0b4-5506-6b49-69fb-76c31b3a6aee eks-g-1-x-1-pre-2022-02-28-21-18-26-48bfa0e3-1813-5a5e-d18e-4906018fae74]
-I0228 19:58:39.344775       1 auto_scaling.go:199] 6 launch configurations already in cache
-I0228 19:58:39.344800       1 auto_scaling_groups.go:407] Instance group eks-g-1-browsers-1-pre-2022-02-28-19-05-30-d8bfa0a6-5e5f-c2d0-d58b-c3032fcc8a82 has only 17 instances created while requested count is 101. Creating placeholder instances.
-I0228 19:58:39.344870       1 auto_scaling_groups.go:407] Instance group eks-g-1-browsers-2-pre-2022-02-28-19-05-30-4abfa0a6-52fa-e575-6f73-ec225a684fc8 has only 23 instances created while requested count is 91. Creating placeholder instances.
-I0228 19:58:39.344919       1 auto_scaling_groups.go:407] Instance group eks-g-1-browsers-3-pre-2022-02-28-19-05-30-06bfa0a6-21dd-fdda-72d0-1912158c995d has only 6 instances created while requested count is 42. Creating placeholder instances.
-
-
-
-kubectl logs -f -n cluster-autoscaler-1 cluster-autoscaler-1-aws-cluster-autoscaler-65d579b8c8-2r68n | grep -v -e "is not suitable for removal" -e "Calculating unneeded nodes" -e ": Watch close -"  -e "No candidates for scale down" -e "Starting scale down" -e "Scale down status:" -e "Starting main loop" -e "Filtering out schedulables" -e "node group min size reached" -e "No schedulable pods" -e "No unschedulable pods" -e "- cpu utilization" -e "Filtered out " -e "0 pods were kept as unschedulable based on caching" -e "0 pods marked as unschedulable can be scheduled." -e "Start refreshing cloud provider node instances cache" -e "0 launch configurations to query" -e "0 launch templates to query" -e "Successfully queried 0 launch configurations" -e "Successfully queried 0 launch templates" -e "Refreshed ASG list" -e "Refresh cloud provider node instances cache finished" -e "due to client-side throttling" -e "marked as unschedulable can be scheduled on node template" -e "is unneeded since" -e "Schedulable pods present" -e "Regenerating instance to ASG map for ASGs" -e "forcing resync"

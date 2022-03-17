@@ -11,7 +11,10 @@ kubernetes_version="${5}"
 bin/eksler create $REGION $CLUSTER_NAME $network $kubernetes_version
 export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
 
-export POOLS=${POOLS:-x-1-pre p-1-pre cluster-1-pre bot-1-pre bot-2-pre}
+bin/helmer install cluster-autoscaler-1
+bin/helmer install metrics-server-1
+
+export POOLS=${POOLS:-x-1-pre p-1-pre cluster-1-2-pre bot-4-8-pre}
 
 for pool in $POOLS; do
   (
@@ -32,8 +35,6 @@ wait $(jobs -p)
 
 bin/eksler with $REGION $CLUSTER_NAME list
 
-bin/helmer install cluster-autoscaler-1
-bin/helmer install prometheus-1
 
 _done
 echo ""

@@ -1,15 +1,6 @@
 ## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
 # affinity -- Affinity for pod assignment
-affinity:  # helmer
-  podAntiAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-            - key: "app.kubernetes.io/name"
-              operator: In
-              values:
-                - "aws-cluster-autoscaler"
-        topologyKey: "kubernetes.io/hostname"
+affinity: {}
 
 autoDiscovery:
   # cloudProviders `aws`, `gce`, `magnum` and `clusterapi` are supported by auto-discovery at this time
@@ -156,7 +147,25 @@ dnsPolicy: ClusterFirst
 # expanderPriorities -- The expanderPriorities is used if `extraArgs.expander` contains `priority` and expanderPriorities is also set with the priorities.
 # If `extraArgs.expander` contains `priority`, then expanderPriorities is used to define cluster-autoscaler-priority-expander priorities.
 # See: https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/expander/priority/readme.md
-expanderPriorities: {}
+expanderPriorities:  # helmer
+  9:
+    - .*-p9-.*
+  8:
+    - .*-p8-.*
+  7:
+    - .*-p7-.*
+  5:
+    - .*-p5-.*
+  4:
+    - .*-p4-.*
+  3:
+    - .*-p3-.*
+  2:
+    - .*-p2-.*
+  1:
+    - .*-p1-.*
+  # 0:            # TODO: maybe needed...?
+  #   - .*
 
 # priorityConfigMapAnnotations -- Annotations to add to `cluster-autoscaler-priority-expander` ConfigMap.
 priorityConfigMapAnnotations: {}
@@ -182,8 +191,7 @@ extraArgs:
   # min-replica-count: 0
   # scale-down-utilization-threshold: 0.5
   # scale-down-non-empty-candidates-count: 30
-  #TODO: test with low value
-  max-node-provision-time: 5m0s  # helmer
+  max-node-provision-time: 5m0s  # helmer TODO: test with low value
   # scan-interval: 10s
   scale-down-delay-after-add: 1m  # helmer
   # scale-down-delay-after-delete: 0s
@@ -308,10 +316,10 @@ replicaCount: 2  # helmer
 resources:  # helmer
   limits:
     cpu: 1
-    memory: 1024Mi  # helmer: seen 320Mi usage when 2000 pods
+    memory: 768Mi  # helmer: seen 400Mi usage when 4000 pods
   requests:
     cpu: 100m
-    memory: 1024Mi
+    memory: 768Mi
 
 # securityContext -- [Security context for pod](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 securityContext: {}
@@ -381,13 +389,13 @@ tolerations:  # helmer
     tolerationSeconds: 10
 
 # topologySpreadConstraints -- You can use topology spread constraints to control how Pods are spread across your cluster among failure-domains such as regions, zones, nodes, and other user-defined topology domains. (requires Kubernetes >= 1.19).
-topologySpreadConstraints: []
-  # - maxSkew: 1
-  #   topologyKey: topology.kubernetes.io/zone
-  #   whenUnsatisfiable: DoNotSchedule
-  #   labelSelector:
-  #     matchLabels:
-  #       app.kubernetes.io/instance: cluster-autoscaler
+topologySpreadConstraints:  # helmer
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/instance: cluster-autoscaler-1
 
 # updateStrategy -- [Deployment update strategy](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy)
 updateStrategy: {}

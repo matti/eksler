@@ -15,20 +15,21 @@ case "${name}" in
       --instance-selector-vcpus=2 --instance-selector-memory=2 \
       --volume-size=8 \
       --label=cluster-autoscaler=yes \
+      --label=metrics-server=yes
   ;;
   p-1-pre)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
       --spot=true \
-      --min-size=1 --max-size=3 \
+      --max-size=3 \
       --instance-selector-vcpus=4 --instance-selector-memory=8 \
       --volume-size=8 \
       --label=prometheus=yes
   ;;
-  cluster-1-pre)
+  cluster-1-2-pre)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
       --spot=true \
-      --min-size=2 --max-size=9 \
-      --instance-selector-vcpus=2 --instance-selector-memory=4 \
+      --max-size=9 \
+      --instance-selector-vcpus=1 --instance-selector-memory=2 \
       --volume-size=8 \
       --label=preemptible=yes \
       --label=regular=yes \
@@ -36,24 +37,12 @@ case "${name}" in
       --label=cluster_name=${cluster_name} \
       --label=region_name=local
   ;;
-  bot-1-pre)
+  bot-4-8-pre)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
       --spot=true \
-      --min-size=1 --max-size=450 \
-      --instance-selector-vcpus=8 --instance-selector-memory=16 \
-      --volume-size=16 \
-      --label=preemptible=yes \
-      --label=regular=yes \
-      --label=bot=yes \
-      --label=cluster_name=${cluster_name} \
-      --label=region_name=local
-  ;;
-  bot-2-pre)
-    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
-      --spot=true \
-      --min-size=1 --max-size=450 \
-      --instance-selector-vcpus=16 --instance-selector-memory=32 \
-      --volume-size=16 \
+      --max-size=1 \
+      --instance-selector-vcpus=4 --instance-selector-memory=8 \
+      --volume-size=8 \
       --label=preemptible=yes \
       --label=regular=yes \
       --label=bot=yes \
