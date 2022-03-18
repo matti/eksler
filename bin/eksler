@@ -285,8 +285,11 @@ kubernetesNetworkConfig:
             instance_selector__memory=${instance_selector__memory:-2}
 
             echo "instances from ec2-instance-selector:"
-            set -x
-            vendor/bin/ec2-instance-selector-darwin-arm64 --region=$REGION --vcpus=$instance_selector__vcpus --memory=$instance_selector__memory
+            set +e
+              set -x
+                vendor/bin/ec2-instance-selector-$(uname)-$(uname -m) --region=$REGION --vcpus=$instance_selector__vcpus --memory=$instance_selector__memory
+              set +x
+            set -e
 
             volume_size=${volume_size:-4}
             volume_type=${volume_type:-gp3}
