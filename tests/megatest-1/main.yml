@@ -62,7 +62,7 @@ metadata:
   name: megatest-1
   namespace: megatest-1
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: megatest-1
