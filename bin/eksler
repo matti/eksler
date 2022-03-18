@@ -368,6 +368,7 @@ managedNodeGroups:
             while true; do
               set +e
                 eksctl --verbose $EKSCTL_LOG_LEVEL create nodegroup -f /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
+                echo "CREATE EXITED with: $?"
               set -e
 
               $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup" && break
