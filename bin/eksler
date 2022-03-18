@@ -365,11 +365,13 @@ managedNodeGroups:
 
             cat /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
 
-            _forever eksctl --verbose $EKSCTL_LOG_LEVEL create nodegroup -f /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
+            while true; do
+              set +e
+                eksctl --verbose $EKSCTL_LOG_LEVEL create nodegroup -f /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
+              set -e
 
-            if ! $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup"; then
-              _never echo "failed to create $nodegroup"
-            fi
+              $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup" && break
+            done
 
             _forever $0 with "$REGION" "$CLUSTER_NAME" tag $nodegroup
           ;;
