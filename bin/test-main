@@ -11,6 +11,9 @@ kubernetes_version="${5}"
 bin/eksler create $REGION $CLUSTER_NAME $network $kubernetes_version
 export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
 
+kubectl delete ns k8s-node-watchdog --ignore-not-found
+kubectl apply -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/f4f1cb2f482f953243bc69deb77741606a503d1d/install.yml
+
 kubectl apply -f tests/megatest-1
 
 bin/helmer install cluster-autoscaler-1
