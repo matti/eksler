@@ -11,16 +11,24 @@ kubernetes_version="${5}"
 bin/eksler create $REGION $CLUSTER_NAME $network $kubernetes_version
 export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
 
-kubectl delete ns k8s-node-watchdog --ignore-not-found
-kubectl apply -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/f4f1cb2f482f953243bc69deb77741606a503d1d/install.yml
+(
+  _forever kubectl delete ns k8s-node-watchdog --ignore-not-found
+  _forever kubectl apply -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/f4f1cb2f482f953243bc69deb77741606a503d1d/install.yml
+) 2>&1 | sed -le "s#^# k8s-node-watchdog: #;" &
 
-kubectl apply -f tests/megatest-1
+(
+  if ! kubectl get ns megatest-1; then
+    kubectl apply -f tests/megatest-1
+  fi
+) 2>&1 | sed -le "s#^# megatest-1: #;" &
 
 bin/helmer install cluster-autoscaler-1
 bin/helmer install aws-load-balancer-controller-1
 bin/helmer install metrics-server-1
+bin/helmer install descheduler-1
 
-export POOLS=${POOLS:-x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1 t-32-64-pre-p6-1 t-48-96-pre-p5-1 t-64-128-pre-p4-1}
+# no 64 because sometimes no avail and it fucks up https://github.com/kubernetes/autoscaler/issues/4751
+export POOLS=${POOLS:-x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1 t-32-64-pre-p6-1 t-48-96-pre-p5-1}
 
 for pool in $POOLS; do
   (
@@ -48,6 +56,10 @@ bin/eksler with $REGION $CLUSTER_NAME list
 # bin/helmer install ingress-nginx-1 $network
 
 # bin/test-test $network
+
+echo "waiting jobs ..."
+wait $(jobs -p)
+echo "..done"
 
 _done
 echo ""

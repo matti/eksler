@@ -1,0 +1,134 @@
+# Default values for descheduler.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# CronJob or Deployment
+kind: Deployment  # helmer
+
+image:
+  repository: k8s.gcr.io/descheduler/descheduler
+  # Overrides the image tag whose default is the chart version
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:  # helmer
+    cpu: "1"
+    memory: 256Mi
+
+nameOverride: ""
+fullnameOverride: ""
+
+# labels that'll be applied to all resources
+commonLabels: {}
+
+cronJobApiVersion: "batch/v1"  # Use "batch/v1beta1" for k8s version < 1.21.0. TODO(@7i) remove with 1.23 release
+schedule: "*/2 * * * *"
+suspend: false
+#startingDeadlineSeconds: 200
+#successfulJobsHistoryLimit: 1
+#failedJobsHistoryLimit: 1
+
+# Required when running as a Deployment
+deschedulingInterval: 10s  # helmer
+
+cmdOptions:
+  v: 3
+  # evict-local-storage-pods:
+  # max-pods-to-evict-per-node: 10
+  # node-selector: "key1=value1,key2=value2"
+
+deschedulerPolicy:
+  strategies:
+    RemoveDuplicates:
+      enabled: false  # helmer
+    RemovePodsViolatingNodeTaints:
+      enabled: false  # helmer
+    RemovePodsViolatingNodeAffinity:
+      enabled: false  # helmer
+      params:
+        nodeAffinityType:
+        - requiredDuringSchedulingIgnoredDuringExecution
+    RemovePodsViolatingInterPodAntiAffinity:
+      enabled: false  # helmer
+    LowNodeUtilization:
+      enabled: false  # helmer
+      params:
+        nodeResourceUtilizationThresholds:
+          thresholds:
+            cpu: 20
+            memory: 20
+            pods: 20
+          targetThresholds:
+            cpu: 50
+            memory: 50
+            pods: 50
+    # helmer: below
+    RemoveFailedPods:
+      enabled: true
+      params:
+        failedPods:
+          includingInitContainers: true
+    RemovePodsHavingTooManyRestarts:
+      enabled: true
+      params:
+        podsHavingTooManyRestarts:
+          podRestartThreshold: 5
+          includingInitContainers: true
+
+priorityClassName: system-cluster-critical
+
+nodeSelector:  # helmer
+  descheduler: "yes"
+
+affinity:  # helmer
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: "app.kubernetes.io/name"
+              operator: In
+              values:
+                - "descheduler"  #TODO: instance?
+        topologyKey: "topology.kubernetes.io/hostname"
+
+tolerations:  # helmer
+  - key: node.kubernetes.io/not-ready
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 10
+  - key: node.kubernetes.io/unreachable
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 10
+
+rbac:
+  # Specifies whether RBAC resources should be created
+  create: true
+
+podSecurityPolicy:
+  # Specifies whether PodSecurityPolicy should be created.
+  create: true
+
+serviceAccount:
+  # Specifies whether a ServiceAccount should be created
+  create: true
+  # The name of the ServiceAccount to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name:
+  # Specifies custom annotations for the serviceAccount
+  annotations: {}
+
+livenessProbe:
+  failureThreshold: 3
+  httpGet:
+    path: /healthz
+    port: 10258
+    scheme: HTTPS
+  initialDelaySeconds: 3
+  periodSeconds: 10

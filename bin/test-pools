@@ -16,15 +16,8 @@ case "${name}" in
       --volume-size=8 \
       --label=cluster-autoscaler=yes \
       --label=aws-load-balancer=yes \
-      --label=metrics-server=yes
-  ;;
-  p-1-pre)
-    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
-      --spot=true \
-      --max-size=3 \
-      --instance-selector-vcpus=8 --instance-selector-memory=16 \
-      --volume-size=8 \
-      --label=prometheus=yes
+      --label=metrics-server=yes \
+      --label=descheduler=yes
   ;;
   t-2-4-pre-p9-1)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \

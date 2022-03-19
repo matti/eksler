@@ -49,7 +49,11 @@ POOLS="bot-1-pre bot-2-pre bot-3-pre" POOL_REFRESH=no bin/main eu-north-1 eka-1 
 
 ## envs
 
-POOLS="test-16-32-pre-1 test-32-64-pre-1 test-64-128-pre-1"
+bin/test-main         eu-west-1  west-0          ipv6  1 1.21
+bin/eksler delete     eu-west-1  west-0
+
+bin/test-main         eu-north-1  test-0          ipv6  1 1.21
+bin/eksler delete     eu-north-1  test-0
 
 bin/test-main         eu-north-1  test-1          ipv6  1 1.21
 bin/eksler delete     eu-north-1  test-1

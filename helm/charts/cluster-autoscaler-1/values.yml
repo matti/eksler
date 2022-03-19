@@ -185,7 +185,7 @@ extraArgs:
   # leader-elect: true
   # leader-elect-resource-lock: endpoints
   # skip-nodes-with-local-storage: true
-  expander: most-pods  # helmer
+  expander: least-waste  # helmer
   # scale-down-enabled: true
   # balance-similar-node-groups: true
   # min-replica-count: 0
@@ -316,10 +316,10 @@ replicaCount: 2  # helmer
 resources:  # helmer
   limits:
     cpu: 1
-    memory: 768Mi  # helmer: seen 400Mi usage when 4000 pods
+    memory: 1024Mi  # helmer: seen 620Mi usage when 5000/10000 pods
   requests:
     cpu: 100m
-    memory: 768Mi
+    memory: 1024Mi
 
 # securityContext -- [Security context for pod](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 securityContext: {}

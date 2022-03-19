@@ -120,10 +120,10 @@ serviceMonitor:
 resources: # helmer
   requests:
     cpu: 100m
-    memory: 256Mi
+    memory: 384Mi  # 189Mi when 8000 pods
   limits:
     cpu: 1
-    memory: 256Mi
+    memory: 385Mi
 
 extraVolumeMounts: []
 

@@ -29,6 +29,9 @@ case $subcommand in
         metrics-server-1)
           values_url="https://raw.githubusercontent.com/kubernetes-sigs/metrics-server/metrics-server-helm-chart-3.8.2/charts/metrics-server/values.yaml"
         ;;
+        descheduler-1)
+          values_url="https://raw.githubusercontent.com/kubernetes-sigs/descheduler/v0.23.1/charts/descheduler/values.yaml"
+        ;;
         *)
           _err "unknown name or url: '$name'"
         ;;
@@ -73,6 +76,12 @@ case $subcommand in
         $0 apply \
           metrics-server-1 \
           https://kubernetes-sigs.github.io/metrics-server metrics-server 3.8.2 \
+          $values
+      ;;
+      descheduler-1)
+        $0 apply \
+          descheduler-1 \
+          https://kubernetes-sigs.github.io/descheduler descheduler 0.23.1 \
           $values
       ;;
     esac
