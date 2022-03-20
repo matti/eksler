@@ -14,12 +14,12 @@ image:
 imagePullSecrets: []
 
 resources:
-  requests:
+  requests:  # helmer
     cpu: 100m
-    memory: 256Mi
-  limits:  # helmer
+    memory: 1024Mi
+  limits:
     cpu: "1"
-    memory: 256Mi
+    memory: 1024Mi
 
 nameOverride: ""
 fullnameOverride: ""

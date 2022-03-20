@@ -13,7 +13,8 @@ export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
 
 (
   _forever kubectl delete ns k8s-node-watchdog --ignore-not-found
-  _forever kubectl apply -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/f4f1cb2f482f953243bc69deb77741606a503d1d/install.yml
+  #TODO: fix to sha
+  _forever kubectl apply -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/main/install.yml
 ) 2>&1 | sed -le "s#^# k8s-node-watchdog: #;" &
 
 for chart in cluster-autoscaler-1 metrics-server-1; do
@@ -22,7 +23,8 @@ for chart in cluster-autoscaler-1 metrics-server-1; do
   ) 2>&1 | sed -le "s#^# helm $chart: #;" &
 done
 
-export POOLS=${POOLS:-x-1-pre c-1-pre b-4-8-pre-p9-1 b-8-16-pre-p8-1}
+#export POOLS=${POOLS:-x-1-pre c-1-pre b-4-8-pre-p9-1 b-8-16-pre-p8-1}
+export POOLS=${POOLS:-x-1-pre c-1-pre b-4-8-pre-p9-1}
 
 for pool in $POOLS; do
   (

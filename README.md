@@ -7,6 +7,9 @@ in EC2 > Auto Scaling groups > eks-g-1-test-1-pre-2022-03-14-16-42-27-32bfc471-6
 
 ## issues
 
+autoscaler uses nodegroups which are not healthy - https://github.com/kubernetes/autoscaler/issues/4751
+memory usage increases heavily with pods - https://github.com/kubernetes/autoscaler/issues/4746
+
 https://github.com/kubernetes/autoscaler/issues/4052
 https://github.com/kubernetes/autoscaler/issues/3802
 
@@ -42,6 +45,7 @@ POOLS="bot-1-pre bot-2-pre bot-3-pre" POOL_REFRESH=no bin/main eu-north-1 eka-1 
   - does topologySpreadConstraints work with skew 1
   - cross-zone load balancing
   - https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.7/grpc_health_probe-linux-amd64
+  - call ec2-instance-selector to fetch a list and use it --> deprecate eksctl instance selector
 
 ## notes
 
@@ -49,24 +53,10 @@ POOLS="bot-1-pre bot-2-pre bot-3-pre" POOL_REFRESH=no bin/main eu-north-1 eka-1 
 
 ## envs
 
-bin/test-main         eu-west-1  west-0          ipv6  1 1.21
-bin/eksler delete     eu-west-1  west-0
+POOLS="x-1-pre t-48-96-pre-p5-1" bin/test-main         eu-north-1   nelikasi-1        ipv6  1 1.21
 
-bin/test-main         eu-north-1  test-0          ipv6  1 1.21
-bin/eksler delete     eu-north-1  test-0
 
-bin/test-main         eu-north-1  test-1          ipv6  1 1.21
-bin/eksler delete     eu-north-1  test-1
+bin/test-main         eu-north-1  north-1       ipv6  1 1.21
+bin/test-main         eu-west-1   west-2        ipv6  1 1.21
 
-bin/test-main         eu-north-1  test-2          ipv6  1 1.21
-bin/eksler delete     eu-north-1  test-2
-
-bin/test-main         eu-north-1  test-3          ipv6  1 1.21
-bin/eksler delete     eu-north-1  test-3
-
-bin/bot-main          us-east-1   putte-bot-1     ipv6  1 1.21
-bin/eksler delete     us-east-1   putte-bot-1
-
-bin/bot-main          eu-north-1  com-bot-1       ipv6  1 1.21
-bin/eksler delete     eu-north-1  com-bot-1
-
+bin/bot-main          us-east-1   putte-bot-3   ipv6  1 1.21
