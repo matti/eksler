@@ -316,10 +316,10 @@ replicaCount: 2  # helmer
 resources:  # helmer
   limits:
     cpu: 1
-    memory: 1024Mi  # helmer: seen 620Mi usage when 5000/10000 pods
+    memory: 2048Mi  # helmer: OOMKilled with 1024Mi when 12000/15000 pods
   requests:
     cpu: 100m
-    memory: 1024Mi
+    memory: 2048Mi
 
 # securityContext -- [Security context for pod](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 securityContext: {}
