@@ -305,13 +305,6 @@ kubernetesNetworkConfig:
             instance_selector__vcpus=${instance_selector__vcpus:-2}
             instance_selector__memory=${instance_selector__memory:-2}
 
-            echo "instances from ec2-instance-selector:"
-            set +e
-              set -x
-                vendor/bin/ec2-instance-selector-$(uname)-$(uname -m) --region=$REGION --vcpus=$instance_selector__vcpus --memory=$instance_selector__memory
-              set +x
-            set -e
-
             volume_size=${volume_size:-4}
             volume_type=${volume_type:-gp3}
             volume_iops=${volume_iops:-3000}
@@ -319,6 +312,35 @@ kubernetesNetworkConfig:
             min_size=${min_size:-0}
             max_size=${max_size:-450}
             spot=${spot:-true}
+
+            if [ "${instance_type:-}" = "" ] && [ "${instance_types:-}" = "" ]; then
+              echo "instances from ec2-instance-selector:"
+              if [ "$spot" = "true" ]; then
+                instance_selector_usage_class="spot"
+              else
+                instance_selector_usage_class="on-demand"
+              fi
+
+              instance_selector_instances=$(vendor/bin/ec2-instance-selector-$(uname)-$(uname -m) \
+                --region=$REGION \
+                --vcpus=$instance_selector__vcpus \
+                --memory=$instance_selector__memory \
+                --hypervisor nitro \
+                --cpu-architecture x86_64 \
+                --gpus 0 \
+                --root-device-type ebs \
+                --usage-class $instance_selector_usage_class
+              )
+
+              instance_types=""
+              for instance in $instance_selector_instances; do
+                if [ "$instance_types" = "" ]; then
+                  instance_types="${instance}"
+                else
+                  instance_types="${instance_types},${instance}"
+                fi
+              done
+            fi
 
             printf """apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
@@ -349,7 +371,7 @@ managedNodeGroups:
 
             if [ "${instance_type:-}" != "" ]; then
               printf "    instanceType: ${instance_type}\n" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
-            elif [ "${instance_types:-}" != "" ]; then
+            else
               printf "    instanceTypes:\n" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
 
               IFS=','
@@ -357,11 +379,6 @@ managedNodeGroups:
                 printf "      - ${instance_type}\n" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
               done
               IFS=' '
-            else
-              printf """    instanceSelector:
-      vCPUs: $instance_selector__vcpus
-      memory: '$instance_selector__memory'
-""" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
             fi
 
             if [ "${ami:-}" != "" ]; then

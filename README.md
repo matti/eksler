@@ -59,4 +59,5 @@ POOLS="x-1-pre t-48-96-pre-p5-1" bin/test-main         eu-north-1   nelikasi-1  
 bin/test-main         eu-north-1  north-1       ipv6  1 1.21
 bin/test-main         eu-west-1   west-2        ipv6  1 1.21
 
-bin/bot-main          us-east-1   putte-bot-3   ipv6  1 1.21
+bin/bot-main          us-east-1   putte-bot-1   ipv6  1 1.21
+bin/bot-main          eu-north-1   com-bot-1   ipv6  1 1.21
