@@ -329,6 +329,7 @@ kubernetesNetworkConfig:
                 --cpu-architecture x86_64 \
                 --gpus 0 \
                 --root-device-type ebs \
+                --deny-list "^vt1\." --deny-list "^inf1\." \
                 --usage-class $instance_selector_usage_class
               )
 
