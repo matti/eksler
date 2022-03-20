@@ -42,6 +42,9 @@ case "${subcommand}" in
   get)
     exec eksctl get cluster --region=$REGION --name=$CLUSTER_NAME
   ;;
+  stack-status)
+    aws --region $REGION cloudformation describe-stacks --stack-name=eksctl-$CLUSTER_NAME-cluster | jq -r '.Stacks[].StackStatus'
+  ;;
   delete)
     while true; do
       set +e
@@ -52,7 +55,16 @@ case "${subcommand}" in
     done
 
     _forever aws --region $REGION cloudformation delete-stack --stack-name=eksctl-$CLUSTER_NAME-cluster
-    _never aws --region $REGION cloudformation describe-stacks --stack-name=eksctl-$CLUSTER_NAME-cluster
+
+    while true; do
+      set +e
+        $0 stack-status "$REGION" "$CLUSTER_NAME"
+      set -e
+
+      2>&1 >/dev/null $0 get "$REGION" "$CLUSTER_NAME" || break
+
+      sleep 10
+    done
 
     echo ""
     echo "cluster delete DONE"
