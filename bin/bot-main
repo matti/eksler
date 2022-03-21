@@ -12,7 +12,7 @@ bin/eksler create $REGION $CLUSTER_NAME $network $kubernetes_version
 export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
 
 (
-  _forever kubectl delete ns k8s-node-watchdog --ignore-not-found
+  _forever kubectl delete ns k8s-node-watchdog --ignore-not-found --wait
   #TODO: fix to sha
   _forever kubectl apply -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/main/install.yml
 ) 2>&1 | sed -le "s#^# k8s-node-watchdog: #;" &

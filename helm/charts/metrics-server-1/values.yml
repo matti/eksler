@@ -151,4 +151,4 @@ affinity:  # helmer
               operator: In
               values:
                 - "metrics-server"
-        topologyKey: "topology.kubernetes.io/hostname"
+        topologyKey: "kubernetes.io/hostname"

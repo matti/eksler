@@ -55,8 +55,12 @@ POOLS="bot-1-pre bot-2-pre bot-3-pre" POOL_REFRESH=no bin/main eu-north-1 eka-1 
 
 POOLS="x-1-pre t-48-96-pre-p5-1" bin/test-main         eu-north-1   nelikasi-1        ipv6  1 1.21
 
+POOLS="x-1-pre" bin/test-main         eu-north-1  north-1       ipv6  1 1.21
 
-bin/test-main         eu-north-1  north-1       ipv6  1 1.21
+
+POOLS="x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1" bin/test-main         eu-north-1  north-1       ipv6  1 1.21
+POOLS="x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1 t-48-96-pre-p5-1" bin/test-main         eu-north-1  north-2       ipv6  1 1.21
+
 bin/test-main         eu-west-1   west-2        ipv6  1 1.21
 
 bin/bot-main          us-east-1   putte-bot-1   ipv6  1 1.21

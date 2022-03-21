@@ -4,6 +4,8 @@ kind: Service
 metadata:
   name: whoami-lb
   namespace: eksler-test-1
+  labels:
+    app: eksler-test-1
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-ip-address-type: ipv4
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip

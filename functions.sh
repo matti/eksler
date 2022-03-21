@@ -40,18 +40,26 @@ _done() {
 
 _shutdown() {
   echo ""
-  echo "SHUTDOWN $0"
-  pids=$(jobs -p)
+  echo "SHUTDOWN"
+  while true; do
+    pids=$(jobs -p)
+    [ "$pids" = "" ] && break
 
-  for pid in $pids; do
-    set +e
-      kill $pid
-      wait $pid
-    set -e
+    echo "SHUTDOWN $0 - pids: $pids"
+
+    for pid in $pids; do
+      set +e
+        echo "sending kill to $pid"
+        kill $pid
+      set -e
+    done
+
+    sleep 5
   done
 
   echo ""
   echo "bye (from $0)."
+  exit 0
 }
 
 trap _shutdown TERM INT

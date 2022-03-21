@@ -1,13 +1,18 @@
+---
 apiVersion: v1
 kind: Namespace
 metadata:
   name: eksler-test-1
+  labels:
+    app: eksler-test-1
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: whoami
   namespace: eksler-test-1
+  labels:
+    app: eksler-test-1
 spec:
   selector:
     matchLabels:
@@ -35,6 +40,8 @@ kind: Service
 metadata:
   name: whoami-clusterip
   namespace: eksler-test-1
+  labels:
+    app: eksler-test-1
 spec:
   type: ClusterIP
   selector:
@@ -49,6 +56,8 @@ kind: Ingress
 metadata:
   name: whoami
   namespace: eksler-test-1
+  labels:
+    app: eksler-test-1
 spec:
   ingressClassName: nginx
   rules:

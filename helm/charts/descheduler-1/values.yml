@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 # CronJob or Deployment
-kind: Deployment  # helmer
+kind: CronJob  # helmer: testing
 
 image:
   repository: k8s.gcr.io/descheduler/descheduler
@@ -28,7 +28,7 @@ fullnameOverride: ""
 commonLabels: {}
 
 cronJobApiVersion: "batch/v1"  # Use "batch/v1beta1" for k8s version < 1.21.0. TODO(@7i) remove with 1.23 release
-schedule: "*/2 * * * *"
+schedule: "* * * * *"  # helmer:
 suspend: false
 #startingDeadlineSeconds: 200
 #successfulJobsHistoryLimit: 1
@@ -95,7 +95,7 @@ affinity:  # helmer
               operator: In
               values:
                 - "descheduler"  #TODO: instance?
-        topologyKey: "topology.kubernetes.io/hostname"
+        topologyKey: "kubernetes.io/hostname"
 
 tolerations:  # helmer
   - key: node.kubernetes.io/not-ready
