@@ -23,8 +23,10 @@ for chart in cluster-autoscaler-1 metrics-server-1; do
   ) 2>&1 | sed -le "s#^# helm $chart: #;" &
 done
 
-#export POOLS=${POOLS:-x-1-pre c-1-pre b-4-8-pre-p9-1 b-8-16-pre-p8-1}
-export POOLS=${POOLS:-x-1-pre c-1-pre b-4-8-pre-p9-1}
+#export POOLS=${POOLS:-x-1-pre c-1-pre b-2-4-pre-p9-1 b-4-8-pre-p8-1 b-8-16-pre-p7-1 b-16-32-pre-p6-1 b-32-64-pre-p5-1 b-48-96-pre-p4-1 b-64-128-pre-p3-1 b-96-192-pre-p2-1}
+
+# 64, 96 seem to not come online
+export POOLS=${POOLS:-c-1-pre b-2-4-pre-p9-1 b-4-8-pre-p8-1 b-8-16-pre-p7-1 b-16-32-pre-p6-1 b-32-64-pre-p5-1 b-48-96-pre-p4-1}
 
 for pool in $POOLS; do
   (

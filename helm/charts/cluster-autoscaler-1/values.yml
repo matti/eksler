@@ -193,7 +193,7 @@ extraArgs:
   # scale-down-non-empty-candidates-count: 30
   max-node-provision-time: 5m0s  # helmer TODO: test with low value
   # scan-interval: 10s
-  scale-down-delay-after-add: 1m  # helmer
+  scale-down-delay-after-add: 5m  # helmer: NOTE: nodegroup is being created it is being registered etc in nodegroup, so do not scaledown immediately
   # scale-down-delay-after-delete: 0s
   scale-down-delay-after-failure: 1m  # helmer
   scale-down-unneeded-time: 1m  # helmer

@@ -41,6 +41,7 @@ _done() {
 _shutdown() {
   echo ""
   echo "SHUTDOWN"
+
   while true; do
     pids=$(jobs -p)
     [ "$pids" = "" ] && break
@@ -48,13 +49,18 @@ _shutdown() {
     echo "SHUTDOWN $0 - pids: $pids"
 
     for pid in $pids; do
-      set +e
-        echo "sending kill to $pid"
-        kill $pid
-      set -e
+      (
+        while true; do
+          echo "sending kill to $pid"
+          kill $pid || break
+          sleep 1
+        done
+
+        echo "failed to kill $pid"
+      ) &
     done
 
-    sleep 5
+    wait $(jobs -p)
   done
 
   echo ""

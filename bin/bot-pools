@@ -21,7 +21,7 @@ case "${name}" in
   c-1-pre)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
       --spot=true \
-      --max-size=9 \
+      --max-size=32 \
       --instance-selector-vcpus=2 --instance-selector-memory=4 \
       --volume-size=8 \
       --label=preemptible=yes \
@@ -30,11 +30,11 @@ case "${name}" in
       --label=cluster_name=${cluster_name} \
       --label=region_name=local
   ;;
-  b-4-8-pre-p9-1)
+  b-2-4-pre-p9-1)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
       --spot=true \
-      --max-size=9 \
-      --instance-selector-vcpus=4 --instance-selector-memory=8 \
+      --max-size=1 \
+      --instance-selector-vcpus=2 --instance-selector-memory=4 \
       --volume-size=8 \
       --label=preemptible=yes \
       --label=regular=yes \
@@ -42,18 +42,85 @@ case "${name}" in
       --label=cluster_name=${cluster_name} \
       --label=region_name=local
   ;;
-  # b-8-16-pre-p8-1)
-  #   bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
-  #     --spot=true \
-  #     --max-size=450 \
-  #     --instance-selector-vcpus=8 --instance-selector-memory=16 \
-  #     --volume-size=8 \
-  #     --label=preemptible=yes \
-  #     --label=regular=yes \
-  #     --label=bot=yes \
-  #     --label=cluster_name=${cluster_name} \
-  #     --label=region_name=local
-  # ;;
+  b-4-8-pre-p8-1)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --max-size=1 \
+      --instance-selector-vcpus=2 --instance-selector-memory=4 \
+      --volume-size=8 \
+      --label=preemptible=yes \
+      --label=regular=yes \
+      --label=bot=yes \
+      --label=cluster_name=${cluster_name} \
+      --label=region_name=local
+  ;;
+  b-8-16-pre-p7-1)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --max-size=3 \
+      --instance-selector-vcpus=8 --instance-selector-memory=16 \
+      --volume-size=8 \
+      --label=preemptible=yes \
+      --label=regular=yes \
+      --label=bot=yes \
+      --label=cluster_name=${cluster_name} \
+      --label=region_name=local
+  ;;
+  b-16-32-pre-p6-1)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --instance-selector-vcpus=16 --instance-selector-memory=32 \
+      --volume-size=8 \
+      --label=preemptible=yes \
+      --label=regular=yes \
+      --label=bot=yes \
+      --label=cluster_name=${cluster_name} \
+      --label=region_name=local
+  ;;
+  b-32-64-pre-p5-1)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --instance-selector-vcpus=32 --instance-selector-memory=64 \
+      --volume-size=8 \
+      --label=preemptible=yes \
+      --label=regular=yes \
+      --label=bot=yes \
+      --label=cluster_name=${cluster_name} \
+      --label=region_name=local
+  ;;
+  b-48-96-pre-p4-1)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --instance-selector-vcpus=48 --instance-selector-memory=96 \
+      --volume-size=10 \
+      --label=preemptible=yes \
+      --label=regular=yes \
+      --label=bot=yes \
+      --label=cluster_name=${cluster_name} \
+      --label=region_name=local
+  ;;
+  b-64-128-pre-p3-1)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --instance-selector-vcpus=64 --instance-selector-memory=128 \
+      --volume-size=12 \
+      --label=preemptible=yes \
+      --label=regular=yes \
+      --label=bot=yes \
+      --label=cluster_name=${cluster_name} \
+      --label=region_name=local
+  ;;
+  b-96-192-pre-p2-1)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --instance-selector-vcpus=96 --instance-selector-memory=192 \
+      --volume-size=16 \
+      --label=preemptible=yes \
+      --label=regular=yes \
+      --label=bot=yes \
+      --label=cluster_name=${cluster_name} \
+      --label=region_name=local
+  ;;
   *)
     _err "unknown pool: $name"
   ;;

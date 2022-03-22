@@ -195,6 +195,14 @@ kubernetesNetworkConfig:
         wait $(jobs -p)
       ;;
       delete-all)
+        charts=$(helm list --all-namespaces --short)
+        for chart in $charts; do
+          (
+            _forever helm delete -n $chart $chart
+          ) 2>&1 | sed -le "s#^# delete chart $chart: #;" &
+        done
+        wait $(jobs -p)
+
         nodegroups=$($0 with "$REGION" "$CLUSTER_NAME" list)
 
         for nodegroup in $nodegroups; do
@@ -432,7 +440,7 @@ managedNodeGroups:
             cat /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
 
             while true; do
-              if eksctl create nodegroup --timeout 10m -f /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml; then
+              if eksctl create nodegroup --timeout 8m -f /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml; then
                 set +e
                   status=$($0 with "$REGION" "$CLUSTER_NAME" status "$nodegroup")
                 set -e
@@ -440,6 +448,7 @@ managedNodeGroups:
                 echo "nodegroup status: $status"
                 [ "$status" = "ACTIVE" ] && break
               else
+                echo "deleting nodegroup: ${nodegroup}"
                 $0 with "$REGION" "$CLUSTER_NAME" delete "$nodegroup"
               fi
             done
@@ -471,7 +480,7 @@ managedNodeGroups:
           delete)
             while true; do
               set +e
-                >/dev/null 2>&1 eksctl delete nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" --wait "$nodegroup"
+                eksctl delete nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" --wait "$nodegroup"
               set -e
 
               if $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup"; then
@@ -481,6 +490,7 @@ managedNodeGroups:
               $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup" || break
             done
 
+            echo "nodegroup delete stacks"
             _forever  >/dev/null 2>&1    aws --region $REGION cloudformation delete-stack --stack-name="eksctl-${CLUSTER_NAME}-nodegroup-${nodegroup}"
             _never    >/dev/null 2>&1    aws --region $REGION cloudformation describe-stacks --stack-name="eksctl-${CLUSTER_NAME}-nodegroup-${nodegroup}"
 

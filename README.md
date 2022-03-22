@@ -9,8 +9,17 @@ in EC2 > Auto Scaling groups > eks-g-1-test-1-pre-2022-03-14-16-42-27-32bfc471-6
 
 autoscaler uses nodegroups which are not healthy - https://github.com/kubernetes/autoscaler/issues/4751
 memory usage increases heavily with pods - https://github.com/kubernetes/autoscaler/issues/4746
+[EKS] [request]: Managed Nodes scale to 0 - https://github.com/aws/containers-roadmap/issues/724
+[EKS] [request]: create managed nodegroups without scaling one instance when minimum is 0 - https://github.com/aws/containers-roadmap/issues/1684
 
-https://github.com/kubernetes/autoscaler/issues/4052
+
+## related issues
+predicate checking error: node(s) didn't match Pod's node affinity; predicateName=NodeAffinity; reasons: node(s) didn't match Pod's node affinity; debugInfo= -  https://github.com/kubernetes/autoscaler/issues/4052
+https://github.com/kubernetes/autoscaler/issues/3802
+Cluster Autoscaler does not start new nodes when Taints and NodeSelector are used in EKS -
+## other issues
+[EKS/Fargate] Support for Wildcard * Namespaces  https://github.com/aws/containers-roadmap/issues/621
+
 https://github.com/kubernetes/autoscaler/issues/3802
 
 
@@ -46,14 +55,12 @@ POOLS="bot-1-pre bot-2-pre bot-3-pre" POOL_REFRESH=no bin/main eu-north-1 eka-1 
   - cross-zone load balancing
   - https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.7/grpc_health_probe-linux-amd64
   - call ec2-instance-selector to fetch a list and use it --> deprecate eksctl instance selector
-
+  - if only 2 zones are available during cluster creation time, those will be the zones (?)
 ## notes
 
 6.8gb used disk after bot
 
 ## envs
-
-POOLS="x-1-pre t-48-96-pre-p5-1" bin/test-main         eu-north-1   nelikasi-1        ipv6  1 1.21
 
 POOLS="x-1-pre" bin/test-main         eu-north-1  north-1       ipv6  1 1.21
 
