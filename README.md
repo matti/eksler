@@ -71,4 +71,7 @@ POOLS="x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1 t-48-96-pre-p5-1"
 bin/test-main         eu-west-1   west-2        ipv6  1 1.21
 
 bin/bot-main          us-east-1   putte-bot-1   ipv6  1 1.21
-bin/bot-main          eu-north-1   com-bot-1   ipv6  1 1.21
+bin/bot-main          eu-north-1  com-bot-1     ipv6  1 1.21
+
+bin/app-main          eu-west-1  vodka-app-1     ipv6  1 1.21
+bin/bot-main          eu-west-1  vodka-bot-1     ipv6  1 1.21

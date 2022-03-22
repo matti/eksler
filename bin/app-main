@@ -12,19 +12,17 @@ bin/eksler create $REGION $CLUSTER_NAME $network $kubernetes_version
 export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
 
 (
+  #TODO: fix to sha
   _forever kubectl apply -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/main/install.yml
 ) 2>&1 | sed -le "s#^# k8s-node-watchdog: #;" &
 
-for chart in cluster-autoscaler-1 metrics-server-1; do
+for chart in cluster-autoscaler-1 aws-load-balancer-controller-1 metrics-server-1 descheduler-1 "ingress-nginx-1 ipv6"; do
   (
     bin/helmer install $chart
   ) 2>&1 | sed -le "s#^# helm $chart: #;" &
 done
 
-#export POOLS=${POOLS:-x-1-pre c-1-pre b-2-4-pre-p9-1 b-4-8-pre-p8-1 b-8-16-pre-p7-1 b-16-32-pre-p6-1 b-32-64-pre-p5-1 b-48-96-pre-p4-1 b-64-128-pre-p3-1 b-96-192-pre-p2-1}
-
-# 64, 96 seem to not come online
-export POOLS=${POOLS:-x-1-pre c-1-pre b-2-4-pre-p9-1 b-4-8-pre-p8-1 b-8-16-pre-p7-1 b-16-32-pre-p6-1 b-32-64-pre-p5-1 b-48-96-pre-p4-1}
+export POOLS=${POOLS:-x-1-pre w-2-4-pre-p9-1}
 
 for pool in $POOLS; do
   (
@@ -35,7 +33,7 @@ for pool in $POOLS; do
       fi
     fi
 
-    bin/bot-pools $pool $REGION $CLUSTER_NAME $generation
+    bin/app-pools $pool $REGION $CLUSTER_NAME $generation
 
     _done
   ) 2>&1 | sed -le "s#^# ++ pool [${SECONDS}]: $pool: #;" &
@@ -45,6 +43,10 @@ wait $(jobs -p)
 
 bin/eksler with $REGION $CLUSTER_NAME list
 
+
+echo "waiting jobs ..."
+wait $(jobs -p)
+echo "..done"
 
 _done
 echo ""
