@@ -2,16 +2,14 @@
 
 stuff with eksctl, helm etc.
 
-spot instance request might take time --> 5min or so too fast?
-in EC2 > Auto Scaling groups > eks-g-1-test-1-pre-2022-03-14-16-42-27-32bfc471-64f4-d7d5-fba3-6f171c45136d
-
 ## issues
 
-autoscaler uses nodegroups which are not healthy - https://github.com/kubernetes/autoscaler/issues/4751
-memory usage increases heavily with pods - https://github.com/kubernetes/autoscaler/issues/4746
-[EKS] [request]: Managed Nodes scale to 0 - https://github.com/aws/containers-roadmap/issues/724
-[EKS] [request]: create managed nodegroups without scaling one instance when minimum is 0 - https://github.com/aws/containers-roadmap/issues/1684
+- [EKS] [request]: Managed Nodes scale to 0 - https://github.com/aws/containers-roadmap/issues/724
+- [EKS] [request]: create managed nodegroups without scaling one instance when minimum is 0 - https://github.com/aws/containers-roadmap/issues/1684
+- autoscaler uses nodegroups which are not healthy - https://github.com/kubernetes/autoscaler/issues/4751
+- memory usage increases heavily with pods - https://github.com/kubernetes/autoscaler/issues/4746
 
+scale-down-delay-after-add: 5m  # helmer: NOTE: nodegroup is being created it is being registered etc in nodegroup, so do not scaledown immediately
 
 ## related issues
 predicate checking error: node(s) didn't match Pod's node affinity; predicateName=NodeAffinity; reasons: node(s) didn't match Pod's node affinity; debugInfo= -  https://github.com/kubernetes/autoscaler/issues/4052
@@ -59,6 +57,14 @@ POOLS="bot-1-pre bot-2-pre bot-3-pre" POOL_REFRESH=no bin/main eu-north-1 eka-1 
 ## notes
 
 6.8gb used disk after bot
+
+
+## aws issue envs
+
+POOLS="x-1-pre t-64-128-pre-p4-1 t-96-192-pre-p3-1" bin/test-main         eu-north-1  sixtyfour-ninetysix       ipv6  1 1.21
+POOLS="x-1-pre t-96-192-pre-p3-1" bin/test-main         eu-north-1  ninetysix       ipv6  1 1.21
+POOLS="x-1-pre t-64-128-pre-p4-1" bin/test-main         eu-north-1  sixtyfour       ipv6  1 1.21
+
 
 ## envs
 
