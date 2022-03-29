@@ -199,19 +199,18 @@ kubernetesNetworkConfig:
         for chart in $charts; do
           (
             _forever helm delete -n $chart $chart
-          ) 2>&1 | sed -le "s#^# delete chart $chart: #;" &
+          ) 2>&1 | sed -le "s#^#delete chart $chart: #;" &
         done
-        wait $(jobs -p)
 
         nodegroups=$($0 with "$REGION" "$CLUSTER_NAME" list)
-
         for nodegroup in $nodegroups; do
           (
             _forever $0 with "$REGION" "$CLUSTER_NAME" delete "$nodegroup"
-          ) 2>&1 | sed -le "s#^# delete ${nodegroup}: #;" &
+          ) 2>&1 | sed -le "s#^#delete ${nodegroup}: #;" &
         done
 
         wait $(jobs -p)
+
         echo ""
         echo "delete-all DONE"
       ;;
@@ -401,16 +400,16 @@ managedNodeGroups:
         imageBuilder: true
         ebs: true
         albIngress: true
-""" > /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
+""" > "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
 
             if [ "${instance_type:-}" != "" ]; then
-              printf "    instanceType: ${instance_type}\n" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
+              printf "    instanceType: ${instance_type}\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
             else
-              printf "    instanceTypes:\n" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
+              printf "    instanceTypes:\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
 
               IFS=','
               for instance_type in ${instance_types:-}; do
-                printf "      - ${instance_type}\n" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
+                printf "      - ${instance_type}\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
               done
               IFS=' '
             fi
@@ -426,22 +425,35 @@ managedNodeGroups:
       - sudo yum install -y htop iotop nano screen bind-utils
       - sudo amazon-linux-extras install epel -y
       - sudo yum install -y stress
-      - date > /tmp/eksler.done
+""" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+
+              if [ "${EKSLER_PREBOOTSTRAP:-}" != "" ]; then
+                  contents=$(cat "$EKSLER_PREBOOTSTRAP")
+                  IFS=$'\n'
+                  for line in $contents; do
+                    printf "      - ${line}\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+                  done
+                  IFS=' '
+              fi
+
+              printf """      - date > /tmp/eksler.done
     overrideBootstrapCommand: |
       #!/bin/bash
       date > /tmp/eksler.bootstrap.start
+
       /etc/eks/bootstrap.sh "$CLUSTER_NAME" |& tee /tmp/eksler.bootstrap.output
       echo "$?" > /tmp/eksler.bootstrap.status
       date > /tmp/eksler.bootstrap.done
-""" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
+""" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+
             elif [ "${ami_family:-}" != "" ]; then
-              printf "    amiFamily: ${ami_family}\n" >> /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
+              printf "    amiFamily: ${ami_family}\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
             fi
 
-            cat /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml
+            cat "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
 
             while true; do
-              if eksctl create nodegroup --timeout 8m -f /tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$nodegroup.yml; then
+              if eksctl create nodegroup --timeout 8m -f "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup.yml}"; then
                 set +e
                   status=$($0 with "$REGION" "$CLUSTER_NAME" status "$nodegroup")
                 set -e

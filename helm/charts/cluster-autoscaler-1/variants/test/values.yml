@@ -1,0 +1,5 @@
+extraArgs:
+  max-node-provision-time: 10m
+  scale-down-delay-after-add: 10m
+  scale-down-delay-after-failure: 10m
+  expander: most-pods

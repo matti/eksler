@@ -61,9 +61,9 @@ POOLS="bot-1-pre bot-2-pre bot-3-pre" POOL_REFRESH=no bin/main eu-north-1 eka-1 
 
 ## aws issue envs
 
-POOLS="x-1-pre t-64-128-pre-p4-1 t-96-192-pre-p3-1" bin/test-main         eu-north-1  sixtyfour-ninetysix       ipv6  1 1.21
-POOLS="x-1-pre t-96-192-pre-p3-1" bin/test-main         eu-north-1  ninetysix       ipv6  1 1.21
-POOLS="x-1-pre t-64-128-pre-p4-1" bin/test-main         eu-north-1  sixtyfour       ipv6  1 1.21
+POOLS_REFRESH=yes POOLS="x-1-pre t-64-128-pre-p4-1" bin/test-main         eu-north-1  sixtyfour       ipv6  1 1.21
+POOLS_REFRESH=yes POOLS="x-1-pre t-96-192-pre-p3-1" bin/test-main         eu-north-1  ninetysix       ipv6  1 1.21
+POOLS_REFRESH=yes bin/test-main         eu-north-1  sixtyfour-ninetysix       ipv6  1 1.21
 
 
 ## envs

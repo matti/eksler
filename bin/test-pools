@@ -18,8 +18,7 @@ case "${name}" in
       --label=aws-load-balancer=yes \
       --label=metrics-server=yes \
       --label=descheduler=yes \
-      --label=ingress-nginx=yes \
-      --label=test=yes
+      --label=ingress-nginx=yes
   ;;
   t-2-4-pre-p9-1)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
@@ -40,6 +39,7 @@ case "${name}" in
   t-16-32-pre-p7-1)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
       --spot=true \
+      --max-size=5 \
       --instance-selector-vcpus=16 --instance-selector-memory=32 \
       --volume-size=8 \
       --label=test=yes
@@ -47,6 +47,7 @@ case "${name}" in
   t-32-64-pre-p6-1)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
       --spot=true \
+      --max-size=5 \
       --instance-selector-vcpus=32 --instance-selector-memory=64 \
       --volume-size=8 \
       --label=test=yes
@@ -54,6 +55,7 @@ case "${name}" in
   t-48-96-pre-p5-1)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
       --spot=true \
+      --max-size=5 \
       --instance-selector-vcpus=48 --instance-selector-memory=96 \
       --volume-size=10 \
       --label=test=yes

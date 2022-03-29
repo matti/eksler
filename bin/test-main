@@ -17,21 +17,18 @@ export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
   _forever kubectl apply -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/main/install.yml
 ) 2>&1 | sed -le "s#^# k8s-node-watchdog: #;" &
 
-(
-  if ! kubectl get ns megatest-1; then
-    kubectl delete priorityclass -l app=megatest-1
-    kubectl apply -f tests/megatest-1
-  fi
-) 2>&1 | sed -le "s#^# megatest-1: #;" &
+# (
+#   _forever kubectl delete priorityclass -l megatest-1=yes --ignore-not-found
+#   _forever kubectl apply -f tests/megatest-1
+# ) 2>&1 | sed -le "s#^# megatest-1: #;" &
 
-for chart in cluster-autoscaler-1 aws-load-balancer-controller-1 metrics-server-1 descheduler-1 "ingress-nginx-1 ipv6"; do
+for chart in "cluster-autoscaler-1 test" aws-load-balancer-controller-1 metrics-server-1 descheduler-1 "ingress-nginx-1 ipv6"; do
   (
     bin/helmer install $chart
   ) 2>&1 | sed -le "s#^# helm $chart: #;" &
 done
 
-#export POOLS=${POOLS:-x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1 t-32-64-pre-p6-1 t-48-96-pre-p5-1 t-64-128-pre-p4-1 t-96-192-pre-p3-1}
-export POOLS=${POOLS:-x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1 t-32-64-pre-p6-1 t-48-96-pre-p5-1}
+export POOLS=${POOLS:-x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1 t-32-64-pre-p6-1 t-48-96-pre-p5-1 t-64-128-pre-p4-1 t-96-192-pre-p3-1}
 
 for pool in $POOLS; do
   (
