@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eumo pipefail
 . functions.sh
 
 export AWS_PAGER=""
@@ -453,7 +453,7 @@ managedNodeGroups:
             cat "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
 
             while true; do
-              if eksctl create nodegroup --timeout 8m -f "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup.yml}"; then
+              if eksctl create nodegroup --timeout 6m -f "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"; then
                 set +e
                   status=$($0 with "$REGION" "$CLUSTER_NAME" status "$nodegroup")
                 set -e
@@ -493,7 +493,7 @@ managedNodeGroups:
           delete)
             while true; do
               set +e
-                eksctl delete nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" --wait "$nodegroup"
+                eksctl delete nodegroup --timeout=8m --region="$REGION" --cluster="$CLUSTER_NAME" --wait "$nodegroup"
               set -e
 
               if $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup"; then

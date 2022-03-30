@@ -61,11 +61,11 @@ hostNetwork:
 
 replicas: 2   # helmer
 
-updateStrategy: {}
-#   type: RollingUpdate
-#   rollingUpdate:
-#     maxSurge: 0
-#     maxUnavailable: 1
+updateStrategy:  # helmer
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 0
+    maxUnavailable: 1
 
 podDisruptionBudget:
   # https://kubernetes.io/docs/tasks/run-application/configure-pdb/

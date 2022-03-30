@@ -10,7 +10,7 @@ _err() {
 _forever() {
   while true; do
     _output "_forever: $@"
-     eval "$@" && break
+    eval "$@" && break
     sleep 1
   done
 }
@@ -40,32 +40,15 @@ _done() {
 
 _shutdown() {
   echo ""
-  echo "SHUTDOWN"
+  echo "SHUTDOWN ($0)"
 
-  while true; do
-    pids=$(jobs -p)
-    [ "$pids" = "" ] && break
+  trap '' TERM INT ERR
 
-    echo "SHUTDOWN $0 - pids: $pids"
+  kill 0
 
-    for pid in $pids; do
-      (
-        while true; do
-          echo "sending kill to $pid"
-          kill $pid || break
-          sleep 1
-        done
+  wait
 
-        echo "failed to kill $pid"
-      ) &
-    done
-
-    wait $(jobs -p)
-  done
-
-  echo ""
-  echo "bye (from $0)."
-  exit 0
+  echo "bye. $0"
 }
 
-trap _shutdown TERM INT
+trap _shutdown TERM INT ERR

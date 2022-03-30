@@ -2,4 +2,10 @@ extraArgs:
   max-node-provision-time: 10m
   scale-down-delay-after-add: 10m
   scale-down-delay-after-failure: 10m
-  expander: most-pods
+  expander: priority
+
+# extraArgs:
+#   max-node-provision-time: 10s
+#   scale-down-delay-after-add: 10s
+#   scale-down-delay-after-failure: 10s
+#   expander: random

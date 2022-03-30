@@ -85,11 +85,11 @@ affinity:  # helmer
                 - "aws-load-balancer-controller-1"
         topologyKey: "kubernetes.io/hostname"
 
-updateStrategy: {}
-  # type: RollingUpdate
-  # rollingUpdate:
-  #   maxSurge: 1
-  #   maxUnavailable: 1
+updateStrategy:  # helmer
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 0
+    maxUnavailable: 1
 
 # serviceAnnotations contains annotations to be added to the provisioned webhook service resource
 serviceAnnotations: {}

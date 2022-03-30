@@ -82,9 +82,10 @@ case $subcommand in
           $values
       ;;
       descheduler-1)
+        # YES, it's off by one: https://github.com/kubernetes-sigs/descheduler/issues/776
         $0 apply \
           descheduler-1 \
-          https://kubernetes-sigs.github.io/descheduler descheduler 0.23.2 \   # YES, it's off by one: https://github.com/kubernetes-sigs/descheduler/issues/776
+          https://kubernetes-sigs.github.io/descheduler descheduler 0.23.2 \
           $values
       ;;
     esac
@@ -127,11 +128,19 @@ case $subcommand in
       cat $tmpfile
     done
 
-    _forever helm upgrade --install \
-      "${name}" "${name}/${chart}" \
-      --create-namespace --namespace "${name}" \
-      --version "${version}" \
-      $opts
+    while true; do
+      if helm upgrade --install \
+        "${name}" "${name}/${chart}" \
+        --create-namespace --namespace "${name}" \
+        --version "${version}" \
+        $opts; then
+        break
+      else
+        kubectl delete secret -n "$name" --field-selector type=helm.sh/release.v1 -l owner=helm
+      fi
+
+      sleep 1
+    done
   ;;
   *)
     _err "unknown ${subcommand}"

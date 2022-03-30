@@ -398,8 +398,8 @@ topologySpreadConstraints:  # helmer
         app.kubernetes.io/instance: cluster-autoscaler-1
 
 # updateStrategy -- [Deployment update strategy](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy)
-updateStrategy: {}
-  # rollingUpdate:
-  #   maxSurge: 1
-  #   maxUnavailable: 0
-  # type: RollingUpdate
+updateStrategy: # helmer
+  rollingUpdate:
+    maxSurge: 0
+    maxUnavailable: 1
+  type: RollingUpdate

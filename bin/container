@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+_echoerr() {
+  2>&1 echo "$@"
+}
+
+_err() {
+  _echoerr $@
+  exit 1
+}
+
+case $1 in
+  recreate)
+    while true; do
+      docker-compose up --build --force-recreate eksler
+      sleep 1
+    done
+  ;;
+  shell)
+    while true; do
+      docker-compose exec eksler bash
+      sleep 1
+    done
+  ;;
+  *)
+    _err "?"
+  ;;
+esac

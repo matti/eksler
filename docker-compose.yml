@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  eksler:
+    build: .
+    image: mattipaksula/eksler
+    entrypoint:
+      - "/app/entrypoint.sh"
+    volumes:
+      - ./.bash_history:/root/.bash_history
+    env_file:
+      - .env
