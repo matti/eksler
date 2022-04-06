@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 _echoerr() {
   2>&1 echo "$@"
@@ -12,7 +13,7 @@ _err() {
 case $1 in
   recreate)
     while true; do
-      docker-compose up --build --force-recreate eksler
+      docker-compose up --build --force-recreate --timeout 0 eksler
       sleep 1
     done
   ;;
@@ -21,6 +22,10 @@ case $1 in
       docker-compose exec eksler bash
       sleep 1
     done
+  ;;
+  buildpush)
+    docker-compose build
+    docker-compose push
   ;;
   *)
     _err "?"

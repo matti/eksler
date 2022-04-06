@@ -31,7 +31,7 @@ kubectl delete pod -n prometheus-1 -l app=prometheus,component=server
     - `--ami` pin down AMI version without yaml
     - `--volumeIOPS` and `--volumeThroughput` without yaml
   - `eksler with eu-north-1 mycluster kubectl get pod`
-  - `export KUBECONFIG=$(eksler with eu-north-1 mycluster kubeconfig)`
+  - `export KUBECONFIG=$(eksler with eu-north-1 mycluster kubeconfig:path)`
   - https://github.com/aws/amazon-ec2-instance-selector without yaml
   - sets root password to `badpassword` for ec2 serial console access when SSM or SSH etc is not accessible
   - installs `htop iotop nano screen bind-utils` to the host for faster debugging

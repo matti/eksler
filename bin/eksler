@@ -3,6 +3,7 @@ set -eumo pipefail
 . functions.sh
 
 export AWS_PAGER=""
+export EKSCTL_COMMON_OPTS="-C false"
 
 subcommand=${1:-}
 case "${subcommand}" in
@@ -19,9 +20,9 @@ case "${subcommand}" in
   list)
     region=${2:-}
     if [ "$region" = "" ]; then
-      exec eksctl get cluster --all-regions
+      exec eksctl $EKSCTL_COMMON_OPTS get cluster --all-regions
     else
-      exec eksctl get cluster --region=$region
+      exec eksctl $EKSCTL_COMMON_OPTS get cluster --region=$region
     fi
   ;;
 esac
@@ -31,16 +32,16 @@ export CLUSTER_NAME=$3
 
 case "${subcommand}" in
   cluster-version)
-    exec eksctl get cluster --region=$REGION $CLUSTER_NAME --output=json | jq -r '.[].Version'
+    exec eksctl $EKSCTL_COMMON_OPTS get cluster --region=$REGION $CLUSTER_NAME --output=json | jq -r '.[].Version'
   ;;
   logging-enable)
-    exec eksctl utils update-cluster-logging --enable-types=controllerManager,scheduler --region=$REGION --cluster=$CLUSTER_NAME --approve
+    exec eksctl $EKSCTL_COMMON_OPTS utils update-cluster-logging --enable-types=controllerManager,scheduler --region=$REGION --cluster=$CLUSTER_NAME --approve
   ;;
   logging-disable)
-    exec eksctl utils update-cluster-logging --disable-types=all --region=$REGION --cluster=$CLUSTER_NAME --approve
+    exec eksctl $EKSCTL_COMMON_OPTS utils update-cluster-logging --disable-types=all --region=$REGION --cluster=$CLUSTER_NAME --approve
   ;;
   get)
-    exec eksctl get cluster --region=$REGION --name=$CLUSTER_NAME
+    exec eksctl $EKSCTL_COMMON_OPTS get cluster --region=$REGION --name=$CLUSTER_NAME
   ;;
   stack-status)
     aws --region $REGION cloudformation describe-stacks --stack-name=eksctl-$CLUSTER_NAME-cluster | jq -r '.Stacks[].StackStatus'
@@ -48,7 +49,7 @@ case "${subcommand}" in
   delete)
     while true; do
       set +e
-        eksctl delete cluster --region=$REGION --name=$CLUSTER_NAME --wait --force
+        eksctl $EKSCTL_COMMON_OPTS delete cluster --region=$REGION --name=$CLUSTER_NAME --wait --force
       set -e
 
       $0 get $REGION $CLUSTER_NAME || break
@@ -61,7 +62,7 @@ case "${subcommand}" in
         $0 stack-status "$REGION" "$CLUSTER_NAME"
       set -e
 
-      2>&1 >/dev/null $0 get "$REGION" "$CLUSTER_NAME" || break
+      >/dev/null 2>&1 $0 get "$REGION" "$CLUSTER_NAME" || break
 
       sleep 10
     done
@@ -71,9 +72,9 @@ case "${subcommand}" in
   ;;
   create)
     eksctl_version_expected="0.87.0"
-    eksctl_version_actual=$(eksctl version)
+    eksctl_version_actual=$(eksctl $EKSCTL_COMMON_OPTS version)
     if [ "$eksctl_version_actual" != "$eksctl_version_expected" ]; then
-      _err "eksctl version is ${eksctl_version_actual} expected ${eksctl_version_expected}"
+      _err "eksctl $EKSCTL_COMMON_OPTS version is ${eksctl_version_actual} expected ${eksctl_version_expected}"
     fi
 
     network=${4}
@@ -123,7 +124,7 @@ kubernetesNetworkConfig:
     if ! $0 get $REGION $CLUSTER_NAME; then
       while true; do
         set +e
-          eksctl create cluster -f /tmp/eksler.$REGION.$CLUSTER_NAME.cluster.yml
+          eksctl $EKSCTL_COMMON_OPTS create cluster -f /tmp/eksler.$REGION.$CLUSTER_NAME.cluster.yml
         set -e
 
         $0 get $REGION $CLUSTER_NAME && break
@@ -134,7 +135,7 @@ kubernetesNetworkConfig:
       _output "cluster already exists"
     fi
 
-    $0 with $REGION $CLUSTER_NAME kubeconfig
+    $0 with $REGION $CLUSTER_NAME kubeconfig:path
 
     echo "cluster create DONE in ${SECONDS}s"
   ;;
@@ -143,18 +144,18 @@ kubernetesNetworkConfig:
 
     export KUBECONFIG="$HOME/.kube/aws-eks-${REGION}-${CLUSTER_NAME}"
 
-    if [ ! -f "${KUBECONFIG}" ] && [ "${withcommand}" != "kubeconfig" ]; then
-      $0 with $REGION $CLUSTER_NAME kubeconfig
+    if [ ! -f "${KUBECONFIG}" ] && [ "${withcommand}" != "kubeconfig:path" ]; then
+      >/dev/null $0 with $REGION $CLUSTER_NAME kubeconfig:path
     fi
 
     # TODO: https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2469
 
     case "${withcommand}" in
       addons:list)
-        exec eksctl get addon --region=$REGION --cluster=$CLUSTER_NAME
+        exec eksctl $EKSCTL_COMMON_OPTS get addon --region=$REGION --cluster=$CLUSTER_NAME
       ;;
       addons:names)
-        exec eksctl get addon --region=$REGION --cluster=$CLUSTER_NAME --output json | jq -r '.[].Name'
+        exec eksctl $EKSCTL_COMMON_OPTS get addon --region=$REGION --cluster=$CLUSTER_NAME --output json | jq -r '.[].Name'
       ;;
       addons:update)
         for addon in $($0 with $REGION $CLUSTER_NAME addons:names); do
@@ -163,15 +164,25 @@ kubernetesNetworkConfig:
 
         exit 0
       ;;
-      kubeconfig)
-        (
-          exec eksctl utils write-kubeconfig --cluster="$CLUSTER_NAME" --region="$REGION" --kubeconfig="${KUBECONFIG}"
-        ) 2>&1 >/dev/null
+      kubeconfig:update)
+        [ -f "$KUBECONFIG" ] && rm "$KUBECONFIG"
 
+        >/dev/null $0 with $REGION $CLUSTER_NAME kubeconfig:path
+      ;;
+      kubeconfig:path)
+        if [ ! -f "$KUBECONFIG" ]; then
+          (
+            exec eksctl $EKSCTL_COMMON_OPTS utils write-kubeconfig --cluster="$CLUSTER_NAME" --region="$REGION" --kubeconfig="${KUBECONFIG}"
+          ) >/dev/null 2>&1
+        fi
         echo $KUBECONFIG
       ;;
+      kubeconfig:contents)
+        path=$($0 with $REGION $CLUSTER_NAME kubeconfig:path)
+        cat "$path"
+      ;;
       list)
-        json=$(eksctl get nodegroups --region="$REGION" --cluster="$CLUSTER_NAME" --output=json)
+        json=$(eksctl $EKSCTL_COMMON_OPTS get nodegroups --region="$REGION" --cluster="$CLUSTER_NAME" --output=json)
 
         echo $json | jq -r '.[].Name' | sort
       ;;
@@ -453,7 +464,7 @@ managedNodeGroups:
             cat "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
 
             while true; do
-              if eksctl create nodegroup --timeout 6m -f "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"; then
+              if eksctl $EKSCTL_COMMON_OPTS create nodegroup --timeout 6m -f "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"; then
                 set +e
                   status=$($0 with "$REGION" "$CLUSTER_NAME" status "$nodegroup")
                 set -e
@@ -493,7 +504,7 @@ managedNodeGroups:
           delete)
             while true; do
               set +e
-                eksctl delete nodegroup --timeout=8m --region="$REGION" --cluster="$CLUSTER_NAME" --wait "$nodegroup"
+                eksctl $EKSCTL_COMMON_OPTS delete nodegroup --timeout=8m --region="$REGION" --cluster="$CLUSTER_NAME" --wait "$nodegroup"
               set -e
 
               if $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup"; then
@@ -510,10 +521,10 @@ managedNodeGroups:
             echo "nodegroup delete DONE in ${SECONDS}s"
           ;;
           status)
-            2>/dev/null exec eksctl get nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" ${@:5} --output=json | jq -r '.[].Status'
+            2>/dev/null exec eksctl $EKSCTL_COMMON_OPTS get nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" ${@:5} --output=json | jq -r '.[].Status'
           ;;
           get)
-            2>/dev/null exec eksctl get nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" ${@:5} --output=json
+            2>/dev/null exec eksctl $EKSCTL_COMMON_OPTS get nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" ${@:5} --output=json
           ;;
         esac
       ;;

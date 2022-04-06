@@ -1,5 +1,24 @@
+_shutdown() {
+  echo ""
+  echo "SHUTDOWN ($0)"
+
+  trap '' TERM INT ERR
+
+  kill 0
+  wait
+
+  echo "bye. $0"
+  exit 0
+}
+
+trap _shutdown TERM INT ERR
+
+_echoerr() {
+  1>&2 echo "$@"
+}
+
 _output() {
-  1>&2 echo " --[ $0 ]--[ $SECONDS ]-- $@"
+  _echoerr " --[ $0 ]--[ $SECONDS ]-- $@"
 }
 
 _err() {
@@ -38,17 +57,24 @@ _done() {
   _output "DONE"
 }
 
-_shutdown() {
-  echo ""
-  echo "SHUTDOWN ($0)"
+_wait() {
+  secondsStart=$SECONDS
 
-  trap '' TERM INT ERR
+  while true; do
+    pids=$(jobs -pr | tr '\n' ' ')
 
-  kill 0
+    if [ "$pids" = "" ]; then
+      _echoerr "_wait completed"
+      break
+    else
+      delta=$(($SECONDS - $secondsStart))
+      _echoerr "_wait ${delta}s: $pids"
+    fi
 
-  wait
+    for i in {1..10}; do
+      [ "$(jobs -pr)" = "" ] && break
 
-  echo "bye. $0"
+      sleep 1
+    done
+  done
 }
-
-trap _shutdown TERM INT ERR

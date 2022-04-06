@@ -147,9 +147,10 @@ dnsPolicy: ClusterFirst
 # expanderPriorities -- The expanderPriorities is used if `extraArgs.expander` contains `priority` and expanderPriorities is also set with the priorities.
 # If `extraArgs.expander` contains `priority`, then expanderPriorities is used to define cluster-autoscaler-priority-expander priorities.
 # See: https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/expander/priority/readme.md
-expanderPriorities:  # helmer
+# helmer:
+expanderPriorities: |-
   9:
-    - .*-p9-.*
+    - .*-p9-.*"
   8:
     - .*-p8-.*
   7:
@@ -164,8 +165,10 @@ expanderPriorities:  # helmer
     - .*-p2-.*
   1:
     - .*-p1-.*
-  # 0:            # TODO: maybe needed...?
-  #   - .*
+
+# helmer:
+# 0:            # TODO: maybe needed...?
+#   - .*
 
 # priorityConfigMapAnnotations -- Annotations to add to `cluster-autoscaler-priority-expander` ConfigMap.
 priorityConfigMapAnnotations: {}
@@ -185,7 +188,7 @@ extraArgs:
   # leader-elect: true
   # leader-elect-resource-lock: endpoints
   # skip-nodes-with-local-storage: true
-  expander: least-waste  # helmer
+  expander: most-pods  # helmer
   # scale-down-enabled: true
   # balance-similar-node-groups: true
   # min-replica-count: 0

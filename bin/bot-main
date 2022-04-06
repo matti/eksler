@@ -9,7 +9,7 @@ generation="${4}"
 kubernetes_version="${5}"
 
 bin/eksler create $REGION $CLUSTER_NAME $network $kubernetes_version
-export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig)
+export KUBECONFIG=$(bin/eksler with $REGION $CLUSTER_NAME kubeconfig:path)
 
 (
   _forever kubectl apply -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/main/install.yml
