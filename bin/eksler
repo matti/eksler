@@ -48,9 +48,7 @@ case "${subcommand}" in
   ;;
   delete)
     while true; do
-      set +e
-        eksctl $EKSCTL_COMMON_OPTS delete cluster --region=$REGION --name=$CLUSTER_NAME --wait --force
-      set -e
+      eksctl $EKSCTL_COMMON_OPTS delete cluster --region=$REGION --name=$CLUSTER_NAME --wait --force || true
 
       $0 get $REGION $CLUSTER_NAME || break
     done
