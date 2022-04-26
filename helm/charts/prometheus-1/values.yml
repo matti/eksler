@@ -393,6 +393,8 @@ configmapReload:
       tag: v0.5.0
       pullPolicy: IfNotPresent
 
+    # containerPort: 9533
+
     ## Additional configmap-reload container arguments
     ##
     extraArgs: {}
@@ -430,6 +432,8 @@ configmapReload:
       repository: jimmidyson/configmap-reload
       tag: v0.5.0
       pullPolicy: IfNotPresent
+
+    # containerPort: 9533
 
     ## Additional configmap-reload container arguments
     ##
@@ -512,8 +516,11 @@ nodeExporter:
 
   ## Custom Update Strategy
   ##
-  updateStrategy:
-    type: RollingUpdate
+  updateStrategy:         # helmer
+    type: RollingUpdate   # helmer
+    rollingUpdate:        # helmer
+      maxSurge: 0         # helmer
+      maxUnavailable: 1   # helmer
 
   ## Additional node-exporter container arguments
   ##
@@ -571,13 +578,13 @@ nodeExporter:
   ## node-exporter resource limits & requests
   ## Ref: https://kubernetes.io/docs/user-guide/compute-resources/
   ##
-  resources:  # helmer
-    limits:
-      cpu: 2
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 512Mi
+  resources:            # helmer
+    limits:             # helmer
+      cpu: 2            # helmer
+      memory: 512Mi     # helmer
+    requests:           # helmer
+      cpu: 100m         # helmer
+      memory: 512Mi     # helmer
 
   # Custom DNS configuration to be added to node-exporter pods
   dnsConfig: {}
@@ -664,7 +671,7 @@ server:
   ##
   image:
     repository: quay.io/prometheus/prometheus
-    tag: v2.31.1
+    tag: v2.34.0
     pullPolicy: IfNotPresent
 
   ## prometheus server priorityClassName
@@ -855,21 +862,20 @@ server:
   ## Node tolerations for server scheduling to nodes with taints
   ## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   ##
-  tolerations:  # helmer
-    - key: node.kubernetes.io/not-ready
-      operator: Exists
-      effect: NoExecute
-      tolerationSeconds: 10
-    - key: node.kubernetes.io/unreachable
-      operator: Exists
-      effect: NoExecute
-      tolerationSeconds: 10
+  tolerations:                                  # helmer
+    - key: node.kubernetes.io/not-ready         # helmer
+      operator: Exists                          # helmer
+      effect: NoExecute                         # helmer
+      tolerationSeconds: 10                     # helmer
+    - key: node.kubernetes.io/unreachable       # helmer
+      operator: Exists                          # helmer
+      effect: NoExecute                         # helmer
+      tolerationSeconds: 10                     # helmer
 
   ## Node labels for Prometheus server pod assignment
   ## Ref: https://kubernetes.io/docs/user-guide/node-selection/
   ##
-  nodeSelector:  # helmer
-    prometheus: "yes"
+  nodeSelector: {}
 
   ## Pod affinity
   ##
@@ -1034,12 +1040,13 @@ server:
   ## Prometheus server resource requests and limits
   ## Ref: http://kubernetes.io/docs/user-guide/compute-resources/
   ##
-  resources:  # helmer
-    limits:
-      memory: 14Gi # helmer: 5000 pods OOMKilled with 8Gi
-    requests:
-      cpu: 100m
-      memory: 14Gi # helmer: 5000 pods OOMKilled with 8Gi
+  resources:        # helmer
+    limits:         # helmer
+      cpu: 1        # helmer
+      memory: 2Gi   # helmer: 5000 pods OOMKilled with 8Gi
+    requests:       # helmer
+      cpu: 100m     # helmer
+      memory: 2Gi   # helmer: 5000 pods OOMKilled with 8Gi
 
   # Required for use in managed kubernetes clusters (such as AWS EKS) with custom CNI (such as calico),
   # because control-plane managed by AWS cannot communicate with pods' IP CIDR and admission webhooks are not working
@@ -1081,6 +1088,10 @@ server:
     fsGroup: 65534
 
   service:
+    ## If false, no Service will be created for the Prometheus server
+    ##
+    enabled: true
+
     annotations: {}
     labels: {}
     clusterIP: ""
@@ -1115,7 +1126,7 @@ server:
 
   ## Prometheus data retention period (default if not specified is 15 days)
   ##
-  retention: "1h"  # helmer
+  retention: "30m"  # helmer
 
 pushgateway:
   ## If false, pushgateway will not be installed
@@ -1555,6 +1566,7 @@ serverFiles:
       # * `prometheus.io/param_<parameter>`: If the metrics endpoint uses parameters
       # then you can set any parameter
       - job_name: 'kubernetes-service-endpoints'
+        honor_labels: true
 
         kubernetes_sd_configs:
           - role: endpoints
@@ -1609,6 +1621,7 @@ serverFiles:
       # * `prometheus.io/param_<parameter>`: If the metrics endpoint uses parameters
       # then you can set any parameter
       - job_name: 'kubernetes-service-endpoints-slow'
+        honor_labels: true
 
         scrape_interval: 5m
         scrape_timeout: 30s
@@ -1666,6 +1679,7 @@ serverFiles:
       #
       # * `prometheus.io/probe`: Only probe services that have a value of `true`
       - job_name: 'kubernetes-services'
+        honor_labels: true
 
         metrics_path: /probe
         params:
@@ -1703,6 +1717,7 @@ serverFiles:
       # * `prometheus.io/path`: If the metrics path is not `/metrics` override this.
       # * `prometheus.io/port`: Scrape the pod on the indicated port instead of the default of `9102`.
       - job_name: 'kubernetes-pods'
+        honor_labels: true
 
         kubernetes_sd_configs:
           - role: pod
@@ -1754,6 +1769,7 @@ serverFiles:
       # * `prometheus.io/path`: If the metrics path is not `/metrics` override this.
       # * `prometheus.io/port`: Scrape the pod on the indicated port instead of the default of `9102`.
       - job_name: 'kubernetes-pods-slow'
+        honor_labels: true
 
         scrape_interval: 5m
         scrape_timeout: 30s

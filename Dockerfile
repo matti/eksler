@@ -5,9 +5,11 @@ ENV PATH="/root/.asdf/shims/:/asdf/bin:${PATH}"
 RUN export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   git curl unzip \
-  gettext-base
+  gettext-base \
+  && rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/asdf-vm/asdf.git /asdf --branch v0.9.0
+RUN git clone https://github.com/asdf-vm/asdf.git /asdf --branch v0.9.0 \
+  && rm -rf /asdf/.git
 
 WORKDIR /app
 
