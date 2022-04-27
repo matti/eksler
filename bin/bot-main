@@ -35,7 +35,7 @@ for pool in $POOLS; do
       fi
     fi
 
-    bin/bot-pools $pool $REGION $CLUSTER_NAME $generation
+    bin/pools $pool $REGION $CLUSTER_NAME $generation
 
     _done
   ) 2>&1 | sed -le "s#^# ++ pool [${SECONDS}]: $pool: #;" &

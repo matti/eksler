@@ -15,8 +15,18 @@ case "${name}" in
       --instance-selector-vcpus=2 --instance-selector-memory=4 \
       --volume-size=8 \
       --label=cluster-autoscaler=yes \
+      --label=aws-load-balancer=yes \
       --label=metrics-server=yes \
-      --label=descheduler=yes
+      --label=descheduler=yes \
+      --label=ingress-nginx=yes
+  ;;
+  w-2-4-pre-p9-1)
+    bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
+      --spot=true \
+      --max-size=32 \
+      --instance-selector-vcpus=2 --instance-selector-memory=4 \
+      --volume-size=8 \
+      --label=workload=yes
   ;;
   c-1-pre)
     bin/ekslerpooler create "${region}" "${cluster_name}" $generation $name \
