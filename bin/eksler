@@ -482,13 +482,15 @@ managedNodeGroups:
         done
 
         while true; do
+          _output "get nodegroup"
           $0 managednodegroup get "$REGION" "$CLUSTER_NAME" "$name_revision" && break
 
           if ! eksctl "$EKSCTL_COMMON_OPTS" create nodegroup --timeout 6m -f "/tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$name-$revision.yml"; then
+            _output "failed, delete"
             $0 managednodegroup delete "$REGION" "$CLUSTER_NAME" "$name_revision"
           fi
         done
-
+        _output "purge"
         $0 managednodegroup purge "$REGION" "$CLUSTER_NAME" "$name_revision"
       ;;
       *)

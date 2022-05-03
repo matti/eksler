@@ -1,4 +1,6 @@
 FROM --platform=linux/amd64 ubuntu:20.04
+LABEL org.opencontainers.image.source https://github.com/matti/eksler
+
 ENV PROMPT_COMMAND="history -a"
 ENV PATH="/root/.asdf/shims/:/asdf/bin:${PATH}"
 
