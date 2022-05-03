@@ -2,6 +2,10 @@
 
 stuff with eksctl, helm etc.
 
+
+bin/eksler create eu-west-1 test-1 ipv6 1.22 1
+
+
 ## issues
 
 - [EKS] [request]: Managed Nodes scale to 0 - https://github.com/aws/containers-roadmap/issues/724

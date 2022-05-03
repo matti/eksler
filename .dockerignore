@@ -4,3 +4,4 @@ docker-compose.yml
 .bash_history
 .dockerignore
 .vscode
+.git

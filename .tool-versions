@@ -1,4 +1,4 @@
-eksctl 0.87.0
+eksctl 0.96.0-rc.0
 kubectl 1.23.4
 jq 1.6
 helm 3.8.1

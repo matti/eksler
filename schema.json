@@ -299,8 +299,8 @@
             "$ref": "#/definitions/ClusterIAMServiceAccount"
           },
           "type": "array",
-          "description": "service accounts to create in the cluster. See [IAM Service Accounts](/iamserviceaccounts/#usage-with-config-files)",
-          "x-intellij-html-description": "service accounts to create in the cluster. See <a href=\"/iamserviceaccounts/#usage-with-config-files\">IAM Service Accounts</a>"
+          "description": "service accounts to create in the cluster. See [IAM Service Accounts](/usage/iamserviceaccounts/#usage-with-config-files)",
+          "x-intellij-html-description": "service accounts to create in the cluster. See <a href=\"/usage/iamserviceaccounts/#usage-with-config-files\">IAM Service Accounts</a>"
         },
         "serviceRoleARN": {
           "type": "string"
@@ -487,14 +487,14 @@
         },
         "version": {
           "type": "string",
-          "description": "Valid variants are: `\"1.18\"`, `\"1.19\"`, `\"1.20\"`, `\"1.21\"` (default).",
-          "x-intellij-html-description": "Valid variants are: <code>&quot;1.18&quot;</code>, <code>&quot;1.19&quot;</code>, <code>&quot;1.20&quot;</code>, <code>&quot;1.21&quot;</code> (default).",
-          "default": "1.21",
+          "description": "Valid variants are: `\"1.19\"`, `\"1.20\"`, `\"1.21\"`, `\"1.22\"` (default).",
+          "x-intellij-html-description": "Valid variants are: <code>&quot;1.19&quot;</code>, <code>&quot;1.20&quot;</code>, <code>&quot;1.21&quot;</code>, <code>&quot;1.22&quot;</code> (default).",
+          "default": "1.22",
           "enum": [
-            "1.18",
             "1.19",
             "1.20",
-            "1.21"
+            "1.21",
+            "1.22"
           ]
         }
       },
@@ -851,6 +851,11 @@
           "description": "create a service account or not.",
           "x-intellij-html-description": "create a service account or not."
         },
+        "defaultInstanceProfile": {
+          "type": "string",
+          "description": "override the default IAM instance profile",
+          "x-intellij-html-description": "override the default IAM instance profile"
+        },
         "version": {
           "type": "string",
           "description": "defines the Karpenter version to install",
@@ -859,7 +864,8 @@
       },
       "preferredOrder": [
         "version",
-        "createServiceAccount"
+        "createServiceAccount",
+        "defaultInstanceProfile"
       ],
       "additionalProperties": false,
       "description": "provides configuration opti",
@@ -917,6 +923,14 @@
         "name"
       ],
       "properties": {
+        "additionalVolumes": {
+          "items": {
+            "$ref": "#/definitions/VolumeMapping"
+          },
+          "type": "array",
+          "description": "Additional Volume Configurations",
+          "x-intellij-html-description": "Additional Volume Configurations"
+        },
         "ami": {
           "type": "string",
           "description": "Specify [custom AMIs](/usage/custom-ami-support/), `auto-ssm`, `auto`, or `static`",
@@ -1062,6 +1076,11 @@
           "x-intellij-html-description": "Enable <a href=\"/usage/vpc-networking/#use-private-subnets-for-initial-nodegroup\">private networking</a> for nodegroup",
           "default": "false"
         },
+        "propagateASGTags": {
+          "type": "boolean",
+          "description": "Propagate all taints and labels to the ASG automatically.",
+          "x-intellij-html-description": "Propagate all taints and labels to the ASG automatically."
+        },
         "releaseVersion": {
           "type": "string",
           "description": "the AMI version of the EKS optimized AMI to use",
@@ -1094,8 +1113,8 @@
             "type": "string"
           },
           "type": "object",
-          "description": "Applied to the Autoscaling Group and to the EC2 instances (unmanaged), Applied to the EKS Nodegroup resource and to the EC2 instances (managed)",
-          "x-intellij-html-description": "Applied to the Autoscaling Group and to the EC2 instances (unmanaged), Applied to the EKS Nodegroup resource and to the EC2 instances (managed)",
+          "description": "Applied to the Autoscaling Group and to the EC2 instances (unmanaged), Applied to the Autoscaling Group, the EKS Nodegroup resource and to the EC2 instances (managed)",
+          "x-intellij-html-description": "Applied to the Autoscaling Group and to the EC2 instances (unmanaged), Applied to the Autoscaling Group, the EKS Nodegroup resource and to the EC2 instances (managed)",
           "default": "{}"
         },
         "taints": {
@@ -1174,8 +1193,10 @@
         "volumeKmsKeyID",
         "volumeIOPS",
         "volumeThroughput",
+        "additionalVolumes",
         "preBootstrapCommands",
         "overrideBootstrapCommand",
+        "propagateASGTags",
         "disableIMDSv1",
         "disablePodIMDS",
         "placement",
@@ -1222,6 +1243,14 @@
         "name"
       ],
       "properties": {
+        "additionalVolumes": {
+          "items": {
+            "$ref": "#/definitions/VolumeMapping"
+          },
+          "type": "array",
+          "description": "Additional Volume Configurations",
+          "x-intellij-html-description": "Additional Volume Configurations"
+        },
         "ami": {
           "type": "string",
           "description": "Specify [custom AMIs](/usage/custom-ami-support/), `auto-ssm`, `auto`, or `static`",
@@ -1296,6 +1325,12 @@
         "desiredCapacity": {
           "type": "integer"
         },
+        "disableASGTagPropagation": {
+          "type": "boolean",
+          "description": "disables the tag propagation to ASG in case desired capacity is 0.",
+          "x-intellij-html-description": "disables the tag propagation to ASG in case desired capacity is 0.",
+          "default": false
+        },
         "disableIMDSv1": {
           "type": "boolean",
           "description": "requires requests to the metadata service to use IMDSv2 tokens",
@@ -1355,6 +1390,11 @@
           "type": "object",
           "default": "{}"
         },
+        "maxInstanceLifetime": {
+          "type": "integer",
+          "description": "defines the maximum amount of time in seconds an instance stays alive.",
+          "x-intellij-html-description": "defines the maximum amount of time in seconds an instance stays alive."
+        },
         "maxPodsPerNode": {
           "type": "integer"
         },
@@ -1391,6 +1431,11 @@
           "x-intellij-html-description": "Enable <a href=\"/usage/vpc-networking/#use-private-subnets-for-initial-nodegroup\">private networking</a> for nodegroup",
           "default": "false"
         },
+        "propagateASGTags": {
+          "type": "boolean",
+          "description": "Propagate all taints and labels to the ASG automatically.",
+          "x-intellij-html-description": "Propagate all taints and labels to the ASG automatically."
+        },
         "securityGroups": {
           "$ref": "#/definitions/NodeGroupSGs"
         },
@@ -1412,8 +1457,8 @@
             "type": "string"
           },
           "type": "object",
-          "description": "Applied to the Autoscaling Group and to the EC2 instances (unmanaged), Applied to the EKS Nodegroup resource and to the EC2 instances (managed)",
-          "x-intellij-html-description": "Applied to the Autoscaling Group and to the EC2 instances (unmanaged), Applied to the EKS Nodegroup resource and to the EC2 instances (managed)",
+          "description": "Applied to the Autoscaling Group and to the EC2 instances (unmanaged), Applied to the Autoscaling Group, the EKS Nodegroup resource and to the EC2 instances (managed)",
+          "x-intellij-html-description": "Applied to the Autoscaling Group and to the EC2 instances (unmanaged), Applied to the Autoscaling Group, the EKS Nodegroup resource and to the EC2 instances (managed)",
           "default": "{}"
         },
         "taints": {
@@ -1497,8 +1542,10 @@
         "volumeKmsKeyID",
         "volumeIOPS",
         "volumeThroughput",
+        "additionalVolumes",
         "preBootstrapCommands",
         "overrideBootstrapCommand",
+        "propagateASGTags",
         "disableIMDSv1",
         "disablePodIMDS",
         "placement",
@@ -1515,11 +1562,13 @@
         "updateConfig",
         "clusterDNS",
         "kubeletExtraConfig",
-        "containerRuntime"
+        "containerRuntime",
+        "disableASGTagPropagation",
+        "maxInstanceLifetime"
       ],
       "additionalProperties": false,
-      "description": "holds configuration attributes that are specific to a nodegroup",
-      "x-intellij-html-description": "holds configuration attributes that are specific to a nodegroup"
+      "description": "holds configuration attributes that are specific to an unmanaged nodegroup",
+      "x-intellij-html-description": "holds configuration attributes that are specific to an unmanaged nodegroup"
     },
     "NodeGroupBottlerocket": {
       "properties": {
@@ -1604,6 +1653,9 @@
           "description": "enables IAM policy for cluster-autoscaler",
           "x-intellij-html-description": "enables IAM policy for cluster-autoscaler"
         },
+        "awsLoadBalancerController": {
+          "type": "boolean"
+        },
         "certManager": {
           "type": "boolean",
           "description": "enables the ability to add records to Route 53 in order to solve the DNS01 challenge. More information can be found [here](https://cert-manager.io/docs/configuration/acme/dns01/route53/#set-up-a-iam-role)",
@@ -1647,6 +1699,7 @@
         "ebs",
         "fsx",
         "efs",
+        "awsLoadBalancerController",
         "albIngress",
         "xRay",
         "cloudWatch"
@@ -1952,6 +2005,60 @@
       "additionalProperties": false,
       "description": "defines the configuration for KMS encryption provider",
       "x-intellij-html-description": "defines the configuration for KMS encryption provider"
+    },
+    "VolumeMapping": {
+      "properties": {
+        "snapshotID": {
+          "type": "string"
+        },
+        "volumeEncrypted": {
+          "type": "boolean"
+        },
+        "volumeIOPS": {
+          "type": "integer"
+        },
+        "volumeKmsKeyID": {
+          "type": "string"
+        },
+        "volumeName": {
+          "type": "string"
+        },
+        "volumeSize": {
+          "type": "integer",
+          "description": "gigabytes",
+          "x-intellij-html-description": "gigabytes",
+          "default": 80
+        },
+        "volumeThroughput": {
+          "type": "integer"
+        },
+        "volumeType": {
+          "type": "string",
+          "description": "Valid variants are: `\"gp2\"` is General Purpose SSD, `\"gp3\"` is General Purpose SSD which can be optimised for high throughput (default), `\"io1\"` is Provisioned IOPS SSD, `\"sc1\"` is Cold HDD, `\"st1\"` is Throughput Optimized HDD.",
+          "x-intellij-html-description": "Valid variants are: <code>&quot;gp2&quot;</code> is General Purpose SSD, <code>&quot;gp3&quot;</code> is General Purpose SSD which can be optimised for high throughput (default), <code>&quot;io1&quot;</code> is Provisioned IOPS SSD, <code>&quot;sc1&quot;</code> is Cold HDD, <code>&quot;st1&quot;</code> is Throughput Optimized HDD.",
+          "default": "gp3",
+          "enum": [
+            "gp2",
+            "gp3",
+            "io1",
+            "sc1",
+            "st1"
+          ]
+        }
+      },
+      "preferredOrder": [
+        "volumeSize",
+        "volumeType",
+        "volumeName",
+        "volumeEncrypted",
+        "volumeKmsKeyID",
+        "volumeIOPS",
+        "volumeThroughput",
+        "snapshotID"
+      ],
+      "additionalProperties": false,
+      "description": "Additional Volume Configurations",
+      "x-intellij-html-description": "Additional Volume Configurations"
     },
     "WellKnownPolicies": {
       "properties": {

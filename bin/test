@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+_shutdown() {
+  trap '' INT TERM ERR
+
+  echo ""
+  echo "shutdown: start"
+  kill 0
+  wait
+  echo "shutdown: exit"
+  exit
+}
+
+trap _shutdown INT TERM ERR
+
+export REGION=$1
+export CLUSTER_NAME=$2
+network=$3
+kubernetes_version=$4
+
+bin/eksler cluster create "$REGION" "$CLUSTER_NAME" "$network" "$kubernetes_version"
+
+for configuration in base-2-4 test-2-4 test-4-8 test-8-16; do
+  name=${configuration%%-*}
+  resources=${configuration#*-}
+  cpus=${resources%-*}
+  mem=${resources#*-}
+
+  case $name in
+    base)
+      min=2
+      max=9
+    ;;
+    *)
+      min=0
+      max=450
+    ;;
+  esac
+
+  (
+    exec bin/eksler managednodegroup create "$REGION" "$CLUSTER_NAME" $configuration --class=spot --vcpus=$cpus --memory=$mem --min-size=$min --max-size=$max
+  ) 2>&1 | sed -le "s#^#$configuration: #;" &
+done
+
+wait
+KUBECONFIG=$(bin/eksler cluster "$REGION" "$CLUSTER_NAME" kubeconfig)
+export KUBECONFIG
+
+# (
+#   _forever kubectl delete ns k8s-node-watchdog --ignore-not-found --wait
+#   #TODO: fix to sha
+#   _forever kubectl apply -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/main/install.yml
+# ) 2>&1 | sed -le "s#^# k8s-node-watchdog: #;" &
+
+# (
+#   _forever kubectl delete priorityclass -l megatest-1=yes --ignore-not-found
+#   _forever kubectl apply -f tests/megatest-1
+# ) 2>&1 | sed -le "s#^# megatest-1: #;" &
+
+# for chart in "cluster-autoscaler-1 test" aws-load-balancer-controller-1 metrics-server-1 descheduler-1 "ingress-nginx-1 ipv6"; do
+#   (
+#     bin/helmer install $chart
+#   ) 2>&1 | sed -le "s#^# helm $chart: #;" &
+# done
+
+# export POOLS=${POOLS:-x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1 t-32-64-pre-p6-1 t-48-96-pre-p5-1 t-64-128-pre-p4-1 t-96-192-pre-p3-1}
+
+# for pool in $POOLS; do
+#   (
+#     if [ "${POOLS_REFRESH:-}" != "yes" ]; then
+#       if bin/ekslerpooler get $REGION $CLUSTER_NAME $generation $pool; then
+#         _output "pool $pool already exists, skip"
+#         exit 0
+#       fi
+#     fi
+
+#     bin/test-pools $pool $REGION $CLUSTER_NAME $generation
+
+#     _done
+#   ) 2>&1 | sed -le "s#^# ++ pool [${SECONDS}]: $pool: #;" &
+# done
+
+# echo "waiting jobs ..."
+# wait
+# echo "..done"
+
+# bin/eksler with $REGION $CLUSTER_NAME list
+
+
+# TODO: https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2039
+# https://aws.amazon.com/premiumsupport/knowledge-center/eks-alb-ingress-controller-fargate/
+# https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/docs/install/iam_policy.json
+# bin/helmer install ingress-nginx-1 $network
+
+# bin/test-test $network
+
+_done
+echo ""

@@ -1,88 +1,140 @@
 #!/usr/bin/env bash
 set -eumo pipefail
-. functions.sh
+. ./functions.sh
 
 export AWS_PAGER=""
 export EKSCTL_COMMON_OPTS="-C false"
 
+eksctl_version_expected="0.96.0-rc.0"
+eksctl_version_actual=$(eksctl "$EKSCTL_COMMON_OPTS" version)
+if [ "$eksctl_version_actual" != "$eksctl_version_expected" ]; then
+  _err "eksctl $EKSCTL_COMMON_OPTS version is ${eksctl_version_actual} expected ${eksctl_version_expected}"
+fi
+
+handled=yes
 subcommand=${1:-}
 case "${subcommand}" in
   ami)
     region=$2
     kubernetes_version=$3
 
-    exec aws ec2 describe-images \
-            --region "$region" \
-            --filters "Name=name,Values=*amazon-eks-node-${kubernetes_version}-*" "Name=architecture,Values=x86_64" \
-            --query "sort_by(Images, &CreationDate)[-1].ImageId" \
-            --output text
+    while true; do
+      aws ec2 describe-images \
+        --region "$region" \
+        --filters "Name=name,Values=*amazon-eks-node-${kubernetes_version}-*" "Name=architecture,Values=x86_64" \
+        --query "sort_by(Images, &CreationDate)[-1].ImageId" \
+        --output text && break
+      sleep 1
+    done
+  ;;
+  regions)
+    while true; do
+      aws ec2 --region us-east-1 describe-regions --output text  --query='Regions[*].RegionName' && break
+      sleep 1
+    done
   ;;
   list)
     region=${2:-}
     if [ "$region" = "" ]; then
-      exec eksctl $EKSCTL_COMMON_OPTS get cluster --all-regions
-    else
-      exec eksctl $EKSCTL_COMMON_OPTS get cluster --region=$region
+      for region in $($0 regions); do
+        $0 list "$region"
+      done
+
+      exit
     fi
+
+    while true; do
+      if output=$(
+        2>/dev/null eksctl "$EKSCTL_COMMON_OPTS" get cluster --region="$region" --output=json
+      ); then
+        break
+      fi
+    done
+
+    [ "$output" = "[]" ] && exit 0
+
+    echo "$output" | jq -re '.[] | .Region + " " + .Name'
+  ;;
+  *)
+    handled=no
   ;;
 esac
+[ "$handled" = "yes" ] && exit 0
 
-export REGION=$2
-export CLUSTER_NAME=$3
+subsubcommand=$2
+export REGION=$3
+export CLUSTER_NAME=$4
+export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/aws-eks-${REGION}-${CLUSTER_NAME}}"
 
+handled=yes
 case "${subcommand}" in
-  cluster-version)
-    exec eksctl $EKSCTL_COMMON_OPTS get cluster --region=$REGION $CLUSTER_NAME --output=json | jq -r '.[].Version'
-  ;;
-  logging-enable)
-    exec eksctl $EKSCTL_COMMON_OPTS utils update-cluster-logging --enable-types=controllerManager,scheduler --region=$REGION --cluster=$CLUSTER_NAME --approve
-  ;;
-  logging-disable)
-    exec eksctl $EKSCTL_COMMON_OPTS utils update-cluster-logging --disable-types=all --region=$REGION --cluster=$CLUSTER_NAME --approve
-  ;;
-  get)
-    exec eksctl $EKSCTL_COMMON_OPTS get cluster --region=$REGION --name=$CLUSTER_NAME
-  ;;
-  stack-status)
-    aws --region $REGION cloudformation describe-stacks --stack-name=eksctl-$CLUSTER_NAME-cluster | jq -r '.Stacks[].StackStatus'
-  ;;
-  delete)
-    while true; do
-      eksctl $EKSCTL_COMMON_OPTS delete cluster --region=$REGION --name=$CLUSTER_NAME --wait --force || true
+  cluster)
+    case "${subsubcommand}" in
+      get)
+        while true; do
+          output=$(2>&1 eksctl get cluster --region="$REGION" "$CLUSTER_NAME" --output=json || true)
 
-      $0 get $REGION $CLUSTER_NAME || break
-    done
+          case $output in
+            *"StatusCode: 404"*)
+              exit 1
+              break
+            ;;
+            *ACTIVE*)
+              echo "$output"
+              exit 0
+              break
+            ;;
+            *)
+              _echoerr "$output"
+            ;;
+          esac
 
-    _forever aws --region $REGION cloudformation delete-stack --stack-name=eksctl-$CLUSTER_NAME-cluster
+          sleep 1
+        done
+      ;;
+      version)
+        while true; do
+          >/dev/null $0 cluster get "$REGION" "$CLUSTER_NAME" || exit 1
 
-    while true; do
-      set +e
-        $0 stack-status "$REGION" "$CLUSTER_NAME"
-      set -e
+          if version=$(
+            2>/dev/null eksctl "$EKSCTL_COMMON_OPTS" get cluster --region="$REGION" "$CLUSTER_NAME" --output=json | jq -r -e '.[].Version'
+          ); then
+            break
+          fi
+        done
 
-      >/dev/null 2>&1 $0 get "$REGION" "$CLUSTER_NAME" || break
+        echo "$version"
+      ;;
+      delete)
+        $0 managednodegroup delete-all "$REGION" "$CLUSTER_NAME"
 
-      sleep 10
-    done
+        while true; do
+          $0 cluster get "$REGION" "$CLUSTER_NAME" || break
 
-    echo ""
-    echo "cluster delete DONE in ${SECONDS}s"
-  ;;
-  create)
-    eksctl_version_expected="0.87.0"
-    eksctl_version_actual=$(eksctl $EKSCTL_COMMON_OPTS version)
-    if [ "$eksctl_version_actual" != "$eksctl_version_expected" ]; then
-      _err "eksctl $EKSCTL_COMMON_OPTS version is ${eksctl_version_actual} expected ${eksctl_version_expected}"
-    fi
+          eksctl "$EKSCTL_COMMON_OPTS" delete cluster --region="$REGION" --name="$CLUSTER_NAME" --wait --force || true
+        done
 
-    network=${4}
-    kubernetes_version=${5}
+        for stack_name in eksctl-$CLUSTER_NAME-cluster eksctl-$CLUSTER_NAME-addon-vpc-cni; do
+          while true; do
+            while true; do
+              if describe_stacks_output=$(aws --region="$REGION" cloudformation describe-stacks --output=json); then
+                break
+              fi
+              sleep 1
+            done
 
-    # https://docs.aws.amazon.com/eks/latest/userguide/managing-vpc-cni.html
-    # https://docs.aws.amazon.com/eks/latest/userguide/managing-coredns.html
-    # https://docs.aws.amazon.com/eks/latest/userguide/managing-kube-proxy.html
+            echo "$describe_stacks_output" | jq -r -e --arg StackName "$stack_name" '.Stacks[] | select(.StackName==$StackName)' || break
 
-    echo """
+            aws --region="$REGION" cloudformation delete-stack --stack-name="$stack_name" || true
+          done
+        done
+      ;;
+      create)
+        network=$5
+        kubernetes_version=$6
+
+        # TODO: https://github.com/weaveworks/eksctl/pull/5078
+        echo """
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
@@ -100,301 +152,288 @@ addons:
     version: latest     # NOTE: has to be present, otherwise some random version
 iam:
   withOIDC: true
-""" >/tmp/eksler.$REGION.$CLUSTER_NAME.cluster.yml
+""" >"/tmp/eksler.$REGION.$CLUSTER_NAME.cluster.yml"
 
-    case "$network" in
-      ipv6)
-        echo """
+        case "$network" in
+          ipv6)
+            echo """
 kubernetesNetworkConfig:
   ipFamily: IPv6
-""" >>/tmp/eksler.$REGION.$CLUSTER_NAME.cluster.yml
+""" >>"/tmp/eksler.$REGION.$CLUSTER_NAME.cluster.yml"
+          ;;
+          ipv4)
+            :
+          ;;
+          *)
+            _err "unknown network: $network"
+          ;;
+        esac
+
+        cat "/tmp/eksler.$REGION.$CLUSTER_NAME.cluster.yml"
+
+        while true; do
+          $0 cluster get "$REGION" "$CLUSTER_NAME" && break
+
+          if ! eksctl "$EKSCTL_COMMON_OPTS" create cluster -f "/tmp/eksler.$REGION.$CLUSTER_NAME.cluster.yml"; then
+            $0 cluster delete "$REGION" "$CLUSTER_NAME"
+          fi
+        done
+
+        _done "cluster create"
       ;;
-      ipv4)
-        :
+      kubeconfig)
+        while true; do
+          >/dev/null $0 cluster get "$REGION" "$CLUSTER_NAME" || exit 1
+
+          >/dev/null 2>&1 eksctl utils write-kubeconfig --region="$REGION" --cluster="$CLUSTER_NAME" --kubeconfig="$KUBECONFIG" && break
+        done
+
+        echo "$KUBECONFIG"
+      ;;
+      kubeconfig:contents)
+        cat "$($0 cluster kubeconfig "$REGION" "$CLUSTER_NAME")"
+      ;;
+      kubectl)
+        exec kubectl "${@:5}"
       ;;
       *)
-        _err "unknown network: $network"
+        handled=no
+      ;;
+    esac
+  ;;
+  managednodegroup)
+    >/dev/null $0 cluster get "$REGION" "$CLUSTER_NAME" || _err "no such cluster '$CLUSTER_NAME' in region '$REGION'"
+
+    handled=yes
+    case "$subsubcommand" in
+     list)
+        while true; do
+          if output=$(2>/dev/null eksctl "$EKSCTL_COMMON_OPTS" get nodegroups --region="$REGION" --cluster="$CLUSTER_NAME" --output=json); then
+            break
+          fi
+          sleep 1
+        done
+        [ "$output" = "[]" ] && exit
+
+        echo "$output" | jq -r '.[].Name' | sort
+      ;;
+      delete-all)
+        for managednodegroup in $($0 managednodegroup list "$REGION" "$CLUSTER_NAME"); do
+          (
+            $0 managednodegroup delete "$REGION" "$CLUSTER_NAME" "$managednodegroup"
+          ) 2>&1 | sed -le "s#^#$managednodegroup: #;" &
+        done
+
+        wait
+      ;;
+      *)
+        handled=no
       ;;
     esac
 
-    cat /tmp/eksler.$REGION.$CLUSTER_NAME.cluster.yml
+    [ "$handled" = "yes" ] && exit
 
-    if ! $0 get $REGION $CLUSTER_NAME; then
-      while true; do
-        set +e
-          eksctl $EKSCTL_COMMON_OPTS create cluster -f /tmp/eksler.$REGION.$CLUSTER_NAME.cluster.yml
-        set -e
+    name=$5
+    case "$subsubcommand" in
+      get)
+        while true; do
+          output=$(2>&1 eksctl "$EKSCTL_COMMON_OPTS" get nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" --output=json "$name" || true)
 
-        $0 get $REGION $CLUSTER_NAME && break
-
-        $0 delete $REGION $CLUSTER_NAME
-      done
-    else
-      _output "cluster already exists"
-    fi
-
-    $0 with $REGION $CLUSTER_NAME kubeconfig:path
-
-    echo "cluster create DONE in ${SECONDS}s"
-  ;;
-  with)
-    withcommand=$4
-
-    export KUBECONFIG="$HOME/.kube/aws-eks-${REGION}-${CLUSTER_NAME}"
-
-    if [ ! -f "${KUBECONFIG}" ] && [ "${withcommand}" != "kubeconfig:path" ]; then
-      >/dev/null $0 with $REGION $CLUSTER_NAME kubeconfig:path
-    fi
-
-    # TODO: https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2469
-
-    case "${withcommand}" in
-      addons:list)
-        exec eksctl $EKSCTL_COMMON_OPTS get addon --region=$REGION --cluster=$CLUSTER_NAME
-      ;;
-      addons:names)
-        exec eksctl $EKSCTL_COMMON_OPTS get addon --region=$REGION --cluster=$CLUSTER_NAME --output json | jq -r '.[].Name'
-      ;;
-      addons:update)
-        for addon in $($0 with $REGION $CLUSTER_NAME addons:names); do
-          eksctl update addon --region=$REGION --cluster=$CLUSTER_NAME --name=$addon
-        done
-
-        exit 0
-      ;;
-      kubeconfig:update)
-        [ -f "$KUBECONFIG" ] && rm "$KUBECONFIG"
-
-        >/dev/null $0 with $REGION $CLUSTER_NAME kubeconfig:path
-      ;;
-      kubeconfig:path)
-        if [ ! -f "$KUBECONFIG" ]; then
-          (
-            exec eksctl $EKSCTL_COMMON_OPTS utils write-kubeconfig --cluster="$CLUSTER_NAME" --region="$REGION" --kubeconfig="${KUBECONFIG}"
-          ) >/dev/null 2>&1
-        fi
-        echo $KUBECONFIG
-      ;;
-      kubeconfig:contents)
-        path=$($0 with $REGION $CLUSTER_NAME kubeconfig:path)
-        cat "$path"
-      ;;
-      list)
-        json=$(eksctl $EKSCTL_COMMON_OPTS get nodegroups --region="$REGION" --cluster="$CLUSTER_NAME" --output=json)
-
-        echo $json | jq -r '.[].Name' | sort
-      ;;
-      cleanup)
-        stacks=$(aws --region $REGION cloudformation list-stacks --stack-status-filter=ROLLBACK_COMPLETE | jq -r '.StackSummaries[].StackName')
-
-        for stack in $stacks; do
-          case $stack in
-            eksctl-${CLUSTER_NAME}-nodegroup-*)
-              (
-                _forever aws --region $REGION cloudformation delete-stack --stack-name=$stack
-                _done
-              ) 2>&1 | sed -le "s#^#cleanup delete: $stack: #;" &
+          case $output in
+            *"StatusCode: 404"*)
+              exit 1
+            ;;
+            *"StatusCode: 400"*)
+              # when it does not exist
+              exit 1
+            ;;
+            *ACTIVE*)
+              break
+            ;;
+            *CREATING*)
+              :
             ;;
             *)
-              _output "cleanup ignore: $stack"
+              _echoerr "$output"
+            ;;
+          esac
+
+          sleep 1
+        done
+
+        # while true; do
+        #   output=$(kubectl get configmap -n "eksler" "managednodegroup-$name" -o jsonpath='{.data.yaml}' || true)
+        #   [ "$output" != "" ] && break
+        #   sleep 1
+        # done
+
+        # printf "%s" "$output"
+      ;;
+      delete)
+        while true; do
+          >/dev/null $0 managednodegroup get "$REGION" "$CLUSTER_NAME" "$name" || break
+
+          eksctl "$EKSCTL_COMMON_OPTS" delete nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" --wait "$name" || true
+        done
+
+        for stack_name in eksctl-$CLUSTER_NAME-nodegroup-$name; do
+          while true; do
+            while true; do
+              if describe_stacks_output=$(aws --region="$REGION" cloudformation describe-stacks --output=json); then
+                break
+              fi
+              sleep 1
+            done
+
+            echo "$describe_stacks_output" | jq -r -e --arg StackName "$stack_name" '.Stacks[] | select(.StackName==$StackName)' || break
+
+            aws --region="$REGION" cloudformation delete-stack --stack-name="$stack_name" || true
+          done
+        done
+
+        while true; do
+          kubectl delete configmap -n "eksler" "managednodegroup-$name" --ignore-not-found && break
+          sleep 1
+        done
+      ;;
+      purge)
+        keep=$6
+        for managednodegroup in $($0 managednodegroup list "$REGION" "$CLUSTER_NAME"); do
+          case "$managednodegroup" in
+            "$name-$keep")
+              _echoerr "keep $managednodegroup"
+            ;;
+            $name-*)
+              _echoerr "delete $managednodegroup"
+              (
+                exec $0 managednodegroup delete "$REGION" "$CLUSTER_NAME" "$managednodegroup"
+              ) 2>&1 | sed -le "s#^#$managednodegroup: #;" &
+            ;;
+            *)
+              _echoerr "ignore $managednodegroup"
             ;;
           esac
         done
 
-        wait $(jobs -p)
+        wait
       ;;
-      delete-all)
-        charts=$(helm list --all-namespaces --short)
-        for chart in $charts; do
-          (
-            _forever helm delete -n $chart $chart
-          ) 2>&1 | sed -le "s#^#delete chart $chart: #;" &
+      create)
+        revision=$(date +"%Y-%m-%d-%H-%M-%S")
+        name_revision="${name}-${revision}"
+        # spot=""
+        # vcpus=""
+        # memory=""
+        label_pairs=""
+        for opt in "${@:6}"; do
+          case $opt in
+            --spot=*)
+              spot=${opt#*=}
+            ;;
+            --vcpus=*)
+              vcpus=${opt#*=}
+            ;;
+            --memory=*)
+              memory=${opt#*=}
+            ;;
+            # --instance-prefix=*)
+            #   instance_prefix=${opt#*=}
+            # ;;
+            # --instance-name=*)
+            #   instance_name=${opt#*=}
+            # ;;
+            --label=*)
+              label_pairs="$label_pairs ${opt#*=}"
+            ;;
+            --class=*)
+              class=${opt#*=}
+            ;;
+            --ami=*)
+              ami=${opt#*=}
+            ;;
+            # --ami-family=*)
+            #   ami_family=${opt#*=}
+            # ;;
+            --volume-size=*)
+              volume_size=${opt#*=}
+            ;;
+            --volume-type=*)
+              volume_type=${opt#*=}
+            ;;
+            --volume-iops=*)
+              volume_iops=${opt#*=}
+            ;;
+            --volume-throughput=*)
+              volume_throughput=${opt#*=}
+            ;;
+            --min-size=*)
+              min_size=${opt#*=}
+            ;;
+            --max-size=*)
+              max_size=${opt#*=}
+              [ "${max_size}" -gt 450 ] && _err "max size ${max_size} greater than 450"
+            ;;
+            *)
+              _err "unknown opt: $opt"
+            ;;
+          esac
         done
 
-        nodegroups=$($0 with "$REGION" "$CLUSTER_NAME" list)
-        for nodegroup in $nodegroups; do
-          (
-            _forever $0 with "$REGION" "$CLUSTER_NAME" delete "$nodegroup"
-          ) 2>&1 | sed -le "s#^#delete ${nodegroup}: #;" &
+        instances=$(ec2-instance-selector \
+          --region="$REGION" \
+          --vcpus="$vcpus" \
+          --memory="$memory" \
+          --hypervisor nitro \
+          --cpu-architecture x86_64 \
+          --gpus 0 \
+          --network-performance-max 25 \
+          --root-device-type ebs \
+          --deny-list "^vt.|^inf.|d\.|en\.|dn\." \
+          --usage-class="$class" \
+          --max-results 100
+        )
+
+        if [ "$class" = "spot" ]; then
+          spot=true
+        else
+          spot=false
+        fi
+
+        if [ "${ami:-}" = "" ]; then
+          cluster_version=$($0 cluster version "$REGION" "$CLUSTER_NAME")
+          ami=$($0 ami "$REGION" "$cluster_version")
+        fi
+
+        volume_size=${volume_size:-4}
+        volume_type=${volume_type:-gp3}
+        volume_iops=${volume_iops:-3000}
+        volume_throughput=${volume_throughput:-125}
+
+        min_size=${min_size:-0}
+        max_size=${max_size:-450}
+
+        labels_indented=""
+        for label_pair in $label_pairs; do
+          key=${label_pair%=*}
+          value=${label_pair#*=}
+
+          labels_indented="$labels_indented
+      $key: '$value'"
         done
 
-        wait $(jobs -p)
-
-        echo ""
-        echo "delete-all DONE"
-      ;;
-      status-all)
-        nodegroups=$(2>/dev/null $0 with "$REGION" "$CLUSTER_NAME" list)
-        for nodegroup in $nodegroups; do
-          status=$(2>/dev/null $0 with "$REGION" "$CLUSTER_NAME" status "$nodegroup")
-          echo "${nodegroup}: ${status}"
+        instances_indented=""
+        for instance in $instances; do
+          instances_indented="${instances_indented}
+      - $instance"
         done
-      ;;
-      create|delete|get|tag|status|wait-while-status)
-        nodegroup=$5
-        case "${withcommand}" in
-          tag)
-            asg=$(
-              aws eks describe-nodegroup --region $REGION --cluster-name $CLUSTER_NAME \
-                --nodegroup-name $nodegroup \
-                --query "nodegroup.resources.autoScalingGroups[0].name" \
-                --output text
-            )
 
-            labels=$(
-              aws eks describe-nodegroup --region $REGION --cluster-name $CLUSTER_NAME \
-                --nodegroup-name $nodegroup \
-                --query "nodegroup.labels" \
-                --output=json | jq -r 'to_entries[] | .key + "=" + .value'
-            )
-
-            for label in $labels; do
-              label_key=${label%=*}
-              label_value=${label#*=}
-
-              case $label_key in
-                alpha.eksctl.io*)
-                  echo "skip: $label"
-                  continue
-                ;;
-              esac
-
-              echo "tag: $label"
-
-              aws autoscaling create-or-update-tags --region $REGION \
-                --tags "ResourceId=${asg},ResourceType=auto-scaling-group,Key=k8s.io/cluster-autoscaler/node-template/label/${label_key},Value=${label_value},PropagateAtLaunch=true"
-            done
-          ;;
-          create)
-            label_pairs=""
-            ami=""
-            for opt in ${@:6}; do
-              case $opt in
-                --instance-prefix=*)
-                  instance_prefix=${opt#*=}
-                ;;
-                --instance-name=*)
-                  instance_name=${opt#*=}
-                ;;
-                --label=*)
-                  label_pairs="$label_pairs ${opt#*=}"
-                ;;
-                --instance-selector-vcpus=*)
-                  instance_selector__vcpus=${opt#*=}
-                ;;
-                --instance-selector-memory=*)
-                  instance_selector__memory=${opt#*=}
-                ;;
-                --instance-types=*)
-                  instance_types=${opt#*=}
-                ;;
-                --instance-type=*)
-                  instance_type=${opt#*=}
-                ;;
-                --ami=*)
-                  ami=${opt#*=}
-                ;;
-                --ami-family=*)
-                  ami_family=${opt#*=}
-                ;;
-                --volume-size=*)
-                  volume_size=${opt#*=}
-                ;;
-                --volume-type=*)
-                  volume_type=${opt#*=}
-                ;;
-                --volume-iops=*)
-                  volume_iops=${opt#*=}
-                ;;
-                --volume-throughput=*)
-                  volume_throughput=${opt#*=}
-                ;;
-                --min-size=*)
-                  min_size=${opt#*=}
-                ;;
-                --max-size=*)
-                  max_size=${opt#*=}
-                  [ "${max_size}" -gt 450 ] && _err "max size ${max_size} greater than 450"
-                ;;
-                --spot=*)
-                  spot=${opt#*=}
-                ;;
-                *)
-                  _err "unknown opt: $opt"
-                ;;
-              esac
-            done
-
-            instance_prefix=${instance_prefix:-}
-            instance_name=${instance_name:-}
-
-            if [ "$ami" = "" ]; then
-              cluster_version=$($0 cluster-version $REGION $CLUSTER_NAME)
-              ami=$($0 ami $REGION $cluster_version)
-            fi
-            echo "cluster kubernetes version: '$cluster_version' and thefore AMI is '$ami'"
-
-            labels_indented=""
-            for label_pair in $label_pairs; do
-              key=${label_pair%=*}
-              value=${label_pair#*=}
-
-              labels_indented="${labels_indented}\n      ${key}: '${value}'"
-            done
-
-            instance_selector__vcpus=${instance_selector__vcpus:-2}
-            instance_selector__memory=${instance_selector__memory:-2}
-
-            volume_size=${volume_size:-4}
-            volume_type=${volume_type:-gp3}
-            volume_iops=${volume_iops:-3000}
-            volume_throughput=${volume_throughput:-125}
-            min_size=${min_size:-0}
-            max_size=${max_size:-450}
-            spot=${spot:-true}
-
-            if [ "${instance_type:-}" = "" ] && [ "${instance_types:-}" = "" ]; then
-              echo "instances from ec2-instance-selector:"
-              if [ "$spot" = "true" ]; then
-                instance_selector_usage_class="spot"
-              else
-                instance_selector_usage_class="on-demand"
-              fi
-
-              instance_selector_instances=$(vendor/bin/ec2-instance-selector-$(uname)-$(uname -m) \
-                --region=$REGION \
-                --vcpus=$instance_selector__vcpus \
-                --memory=$instance_selector__memory \
-                --hypervisor nitro \
-                --cpu-architecture x86_64 \
-                --gpus 0 \
-                --network-performance-max 25 \
-                --root-device-type ebs \
-                --deny-list "^vt1\." --deny-list "^inf1\." \
-                --usage-class $instance_selector_usage_class
-              )
-
-              instance_types=""
-              for instance in $instance_selector_instances; do
-                if [ "$instance_types" = "" ]; then
-                  instance_types="${instance}"
-                else
-                  instance_types="${instance_types},${instance}"
-                fi
-              done
-            fi
-
-            printf """apiVersion: eksctl.io/v1alpha5
+        echo """apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
-
 metadata:
   name: '$CLUSTER_NAME'
   region: '$REGION'
 
 managedNodeGroups:
-  - name: '$nodegroup'
-    instancePrefix: '$instance_prefix'
-    instanceName: '$instance_name'
+  - name: '$name_revision'
     labels: $labels_indented
     volumeType: '$volume_type'
     volumeSize: $volume_size
@@ -409,23 +448,7 @@ managedNodeGroups:
         imageBuilder: true
         ebs: true
         albIngress: true
-""" > "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
-
-            if [ "${instance_type:-}" != "" ]; then
-              printf "    instanceType: ${instance_type}\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
-            else
-              printf "    instanceTypes:\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
-
-              IFS=','
-              for instance_type in ${instance_types:-}; do
-                printf "      - ${instance_type}\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
-              done
-              IFS=' '
-            fi
-
-            if [ "${ami:-}" != "" ]; then
-              printf """
-    ami: ${ami}
+    instanceTypes: $instances_indented
     preBootstrapCommands:
       - date > /tmp/eksler.start
       - echo 'changing root password'
@@ -433,108 +456,392 @@ managedNodeGroups:
       - echo 'password changed'
       - sudo yum install -y htop iotop nano screen bind-utils
       - sudo amazon-linux-extras install epel -y
-      - sudo yum install -y stress
-""" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
-
-              if [ "${EKSLER_PREBOOTSTRAP:-}" != "" ]; then
-                  contents=$(cat "$EKSLER_PREBOOTSTRAP")
-                  IFS=$'\n'
-                  for line in $contents; do
-                    printf "      - ${line}\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
-                  done
-                  IFS=' '
-              fi
-
-              printf """      - date > /tmp/eksler.done
+      - date > /tmp/eksler.done
+    ami: '$ami'
     overrideBootstrapCommand: |
       #!/bin/bash
+      set -euo pipefail
       date > /tmp/eksler.bootstrap.start
-
-      /etc/eks/bootstrap.sh "$CLUSTER_NAME" |& tee /tmp/eksler.bootstrap.output
-      echo "$?" > /tmp/eksler.bootstrap.status
+      /etc/eks/bootstrap.sh '$CLUSTER_NAME' |& tee /tmp/eksler.bootstrap.output
+      echo $? > /tmp/eksler.bootstrap.status
       date > /tmp/eksler.bootstrap.done
-""" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+""" > "/tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$name-$revision.yml"
 
-            elif [ "${ami_family:-}" != "" ]; then
-              printf "    amiFamily: ${ami_family}\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
-            fi
+        cat "/tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$name-$revision.yml"
 
-            cat "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+        while true; do
+          >/dev/null 2>&1 kubectl get namespace eksler && break
+          kubectl create namespace eksler || true
+          sleep 1
+        done
 
-            while true; do
-              if eksctl $EKSCTL_COMMON_OPTS create nodegroup --timeout 6m -f "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"; then
-                set +e
-                  status=$($0 with "$REGION" "$CLUSTER_NAME" status "$nodegroup")
-                set -e
+        while true; do
+          kubectl get configmap -n eksler "managednodegroup-$name_revision" && break
+          kubectl create configmap -n eksler "managednodegroup-$name_revision" --from-file=yaml="/tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$name-$revision.yml" || true
+          sleep 1
+        done
 
-                echo "nodegroup status: $status"
-                [ "$status" = "ACTIVE" ] && break
-              else
-                echo "deleting nodegroup: ${nodegroup}"
-                $0 with "$REGION" "$CLUSTER_NAME" delete "$nodegroup"
-              fi
-            done
+        while true; do
+          $0 managednodegroup get "$REGION" "$CLUSTER_NAME" "$name_revision" && break
 
-            _forever $0 with "$REGION" "$CLUSTER_NAME" tag $nodegroup
+          if ! eksctl "$EKSCTL_COMMON_OPTS" create nodegroup --timeout 6m -f "/tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$name-$revision.yml"; then
+            $0 managednodegroup delete "$REGION" "$CLUSTER_NAME" "$name_revision"
+          fi
+        done
 
-            echo ""
-            echo "nodegroup create DONE in ${SECONDS}s"
-          ;;
-          wait-while-status)
-            status=$6
-
-            while true; do
-              currentStatus=""
-              set +e
-                currentStatus=$($0 with "$REGION" "$CLUSTER_NAME" status "$nodegroup")
-              set -e
-
-              if [ "$currentStatus" = "$status" ]; then
-                echo "wait-while-status nodegroup '${nodegroup}' status: '${currentStatus}' is '${status}'"
-              else
-                echo "wait-while-status nodegroup '${nodegroup}' status: '${currentStatus}' not '${status}'"
-                exit 0
-              fi
-
-              sleep 5
-            done
-          ;;
-          delete)
-            while true; do
-              set +e
-                eksctl $EKSCTL_COMMON_OPTS delete nodegroup --timeout=8m --region="$REGION" --cluster="$CLUSTER_NAME" --wait "$nodegroup"
-              set -e
-
-              if $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup"; then
-                $0 with "$REGION" "$CLUSTER_NAME" wait-while-status "$nodegroup" "DELETING"
-              fi
-
-              $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup" || break
-            done
-
-            echo "nodegroup delete stacks"
-            _forever  >/dev/null 2>&1    aws --region $REGION cloudformation delete-stack --stack-name="eksctl-${CLUSTER_NAME}-nodegroup-${nodegroup}"
-            _never    >/dev/null 2>&1    aws --region $REGION cloudformation describe-stacks --stack-name="eksctl-${CLUSTER_NAME}-nodegroup-${nodegroup}"
-
-            echo "nodegroup delete DONE in ${SECONDS}s"
-          ;;
-          status)
-            2>/dev/null exec eksctl $EKSCTL_COMMON_OPTS get nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" ${@:5} --output=json | jq -r '.[].Status'
-          ;;
-          get)
-            2>/dev/null exec eksctl $EKSCTL_COMMON_OPTS get nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" ${@:5} --output=json
-          ;;
-        esac
-      ;;
-      kubectl|k)
-        exec kubectl ${@:5}
+        $0 managednodegroup purge "$REGION" "$CLUSTER_NAME" "$name_revision"
       ;;
       *)
-        _err "unknown with ${withcommand}"
+        handled=no
       ;;
     esac
   ;;
   *)
-    _err "unknown subcommand ${subcommand}"
+    handled=no
   ;;
 esac
+
+[ "$handled" = "yes" ] && exit
+
+
+#     # TODO: https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2469
+
+#         wait $(jobs -p)
+#       ;;
+#       delete-all)
+#         charts=$(helm list --all-namespaces --short)
+#         for chart in $charts; do
+#           (
+#             _forever helm delete -n $chart $chart
+#           ) 2>&1 | sed -le "s#^#delete chart $chart: #;" &
+#         done
+
+#         nodegroups=$($0 with "$REGION" "$CLUSTER_NAME" list)
+#         for nodegroup in $nodegroups; do
+#           (
+#             _forever $0 with "$REGION" "$CLUSTER_NAME" delete "$nodegroup"
+#           ) 2>&1 | sed -le "s#^#delete ${nodegroup}: #;" &
+#         done
+
+#         wait $(jobs -p)
+
+#         echo ""
+#         echo "delete-all DONE"
+#       ;;
+#       status-all)
+#         nodegroups=$(2>/dev/null $0 with "$REGION" "$CLUSTER_NAME" list)
+#         for nodegroup in $nodegroups; do
+#           status=$(2>/dev/null $0 with "$REGION" "$CLUSTER_NAME" status "$nodegroup")
+#           echo "${nodegroup}: ${status}"
+#         done
+#       ;;
+#       create|delete|get|tag|status|wait-while-status)
+#         nodegroup=$5
+#         case "${withcommand}" in
+#           tag)
+#             asg=$(
+#               aws eks describe-nodegroup --region="$REGION" --cluster-name "$CLUSTER_NAME" \
+#                 --nodegroup-name "$nodegroup" \
+#                 --query "nodegroup.resources.autoScalingGroups[0].name" \
+#                 --output text
+#             )
+
+#             labels=$(
+#               aws eks describe-nodegroup --region="$REGION" --cluster-name "$CLUSTER_NAME" \
+#                 --nodegroup-name "$nodegroup" \
+#                 --query "nodegroup.labels" \
+#                 --output=json | jq -r 'to_entries[] | .key + "=" + .value'
+#             )
+
+#             for label in $labels; do
+#               label_key=${label%=*}
+#               label_value=${label#*=}
+
+#               case $label_key in
+#                 alpha.eksctl.io*)
+#                   echo "skip: $label"
+#                   continue
+#                 ;;
+#               esac
+
+#               echo "tag: $label"
+
+#               aws autoscaling create-or-update-tags --region="$REGION" \
+#                 --tags "ResourceId=${asg},ResourceType=auto-scaling-group,Key=k8s.io/cluster-autoscaler/node-template/label/${label_key},Value=${label_value},PropagateAtLaunch=true"
+#             done
+#           ;;
+#           create)
+#             label_pairs=""
+#             ami=""
+#             for opt in "${@:6}"; do
+#               case $opt in
+#                 --instance-prefix=*)
+#                   instance_prefix=${opt#*=}
+#                 ;;
+#                 --instance-name=*)
+#                   instance_name=${opt#*=}
+#                 ;;
+#                 --label=*)
+#                   label_pairs="$label_pairs ${opt#*=}"
+#                 ;;
+#                 --instance-selector-vcpus=*)
+#                   instance_selector__vcpus=${opt#*=}
+#                 ;;
+#                 --instance-selector-memory=*)
+#                   instance_selector__memory=${opt#*=}
+#                 ;;
+#                 --instance-types=*)
+#                   instance_types=${opt#*=}
+#                 ;;
+#                 --instance-type=*)
+#                   instance_type=${opt#*=}
+#                 ;;
+#                 --ami=*)
+#                   ami=${opt#*=}
+#                 ;;
+#                 --ami-family=*)
+#                   ami_family=${opt#*=}
+#                 ;;
+#                 --volume-size=*)
+#                   volume_size=${opt#*=}
+#                 ;;
+#                 --volume-type=*)
+#                   volume_type=${opt#*=}
+#                 ;;
+#                 --volume-iops=*)
+#                   volume_iops=${opt#*=}
+#                 ;;
+#                 --volume-throughput=*)
+#                   volume_throughput=${opt#*=}
+#                 ;;
+#                 --min-size=*)
+#                   min_size=${opt#*=}
+#                 ;;
+#                 --max-size=*)
+#                   max_size=${opt#*=}
+#                   [ "${max_size}" -gt 450 ] && _err "max size ${max_size} greater than 450"
+#                 ;;
+#                 --spot=*)
+#                   spot=${opt#*=}
+#                 ;;
+#                 *)
+#                   _err "unknown opt: $opt"
+#                 ;;
+#               esac
+#             done
+
+#             instance_prefix=${instance_prefix:-}
+#             instance_name=${instance_name:-}
+
+#             if [ "$ami" = "" ]; then
+#               cluster_version=$($0 cluster-version $REGION $CLUSTER_NAME)
+#               ami=$($0 ami $REGION $cluster_version)
+#             fi
+#             echo "cluster kubernetes version: '$cluster_version' and thefore AMI is '$ami'"
+
+#             labels_indented=""
+#             for label_pair in $label_pairs; do
+#               key=${label_pair%=*}
+#               value=${label_pair#*=}
+
+#               labels_indented="${labels_indented}\n      ${key}: '${value}'"
+#             done
+
+#             instance_selector__vcpus=${instance_selector__vcpus:-2}
+#             instance_selector__memory=${instance_selector__memory:-2}
+
+#             volume_size=${volume_size:-4}
+#             volume_type=${volume_type:-gp3}
+#             volume_iops=${volume_iops:-3000}
+#             volume_throughput=${volume_throughput:-125}
+#             min_size=${min_size:-0}
+#             max_size=${max_size:-450}
+#             spot=${spot:-true}
+
+#             if [ "${instance_type:-}" = "" ] && [ "${instance_types:-}" = "" ]; then
+#               echo "instances from ec2-instance-selector:"
+#               if [ "$spot" = "true" ]; then
+#                 instance_selector_usage_class="spot"
+#               else
+#                 instance_selector_usage_class="on-demand"
+#               fi
+
+#               #TODO: update
+#               instance_selector_instances=$("vendor/bin/ec2-instance-selector-$(uname)-$(uname -m)" \
+#                 --region="$REGION" \
+#                 --vcpus=$instance_selector__vcpus \
+#                 --memory=$instance_selector__memory \
+#                 --hypervisor nitro \
+#                 --cpu-architecture x86_64 \
+#                 --gpus 0 \
+#                 --network-performance-max 25 \
+#                 --root-device-type ebs \
+#                 --deny-list "^vt.|^inf.|d\.|en\.|dn\." \
+#                 --usage-class $instance_selector_usage_class \
+#                 --max-results 100
+#               )
+
+#               instance_types=""
+#               for instance in $instance_selector_instances; do
+#                 if [ "$instance_types" = "" ]; then
+#                   instance_types="${instance}"
+#                 else
+#                   instance_types="${instance_types},${instance}"
+#                 fi
+#               done
+#             fi
+
+#             echo """apiVersion: eksctl.io/v1alpha5
+# kind: ClusterConfig
+
+# metadata:
+#   name: '$CLUSTER_NAME'
+#   region: '$REGION'
+
+# managedNodeGroups:
+#   - name: '$nodegroup'
+#     instancePrefix: '$instance_prefix'
+#     instanceName: '$instance_name'
+#     labels: $labels_indented
+#     volumeType: '$volume_type'
+#     volumeSize: $volume_size
+#     volumeIOPS: $volume_iops
+#     volumeThroughput: $volume_throughput
+#     minSize: $min_size
+#     maxSize: $max_size
+#     spot: $spot
+#     iam:
+#       withAddonPolicies:
+#         autoScaler: true
+#         imageBuilder: true
+#         ebs: true
+#         albIngress: true
+# """ > "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+
+#             if [ "${instance_type:-}" != "" ]; then
+#               printf "    instanceType: ${instance_type}\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+#             else
+#               printf "    instanceTypes:\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+
+#               IFS=','
+#               for instance_type in ${instance_types:-}; do
+#                 printf "      - ${instance_type}\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+#               done
+#               IFS=' '
+#             fi
+
+#             if [ "${ami:-}" != "" ]; then
+#               echo """
+#     ami: ${ami}
+#     preBootstrapCommands:
+#       - date > /tmp/eksler.start
+#       - echo 'changing root password'
+#       - echo 'root:badpassword' | sudo chpasswd
+#       - echo 'password changed'
+#       - sudo yum install -y htop iotop nano screen bind-utils
+#       - sudo amazon-linux-extras install epel -y
+#       - sudo yum install -y stress
+# """ >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+
+#               if [ "${EKSLER_PREBOOTSTRAP:-}" != "" ]; then
+#                   contents=$(cat "$EKSLER_PREBOOTSTRAP")
+#                   IFS=$'\n'
+#                   for line in $contents; do
+#                     printf "      - ${line}\n" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+#                   done
+#                   IFS=' '
+#               fi
+
+#               echo """      - date > /tmp/eksler.done
+#     overrideBootstrapCommand: |
+#       #!/bin/bash
+#       date > /tmp/eksler.bootstrap.start
+
+#       /etc/eks/bootstrap.sh $CLUSTER_NAME |& tee /tmp/eksler.bootstrap.output
+#       echo $? > /tmp/eksler.bootstrap.status
+#       date > /tmp/eksler.bootstrap.done
+# """ >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+
+#             elif [ "${ami_family:-}" != "" ]; then
+#               printf "    amiFamily: %s\n" "$ami_family" >> "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+#             fi
+
+#             cat "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"
+
+#             while true; do
+#               if eksctl "$EKSCTL_COMMON_OPTS" create nodegroup --timeout 6m -f "/tmp/eksler.${REGION}.${CLUSTER_NAME}.nodegroup.${nodegroup}.yml"; then
+#                 set +e
+#                   status=$($0 with "$REGION" "$CLUSTER_NAME" status "$nodegroup")
+#                 set -e
+
+#                 echo "nodegroup status: $status"
+#                 [ "$status" = "ACTIVE" ] && break
+#               else
+#                 echo "deleting nodegroup: ${nodegroup}"
+#                 $0 with "$REGION" "$CLUSTER_NAME" delete "$nodegroup"
+#               fi
+#             done
+
+#             _forever $0 with "$REGION" "$CLUSTER_NAME" tag $nodegroup
+
+#             echo ""
+#             echo "nodegroup create DONE in ${SECONDS}s"
+#           ;;
+#           wait-while-status)
+#             status=$6
+
+#             while true; do
+#               currentStatus=""
+#               set +e
+#                 currentStatus=$($0 with "$REGION" "$CLUSTER_NAME" status "$nodegroup")
+#               set -e
+
+#               if [ "$currentStatus" = "$status" ]; then
+#                 echo "wait-while-status nodegroup '${nodegroup}' status: '${currentStatus}' is '${status}'"
+#               else
+#                 echo "wait-while-status nodegroup '${nodegroup}' status: '${currentStatus}' not '${status}'"
+#                 exit 0
+#               fi
+
+#               sleep 5
+#             done
+#           ;;
+#           delete)
+#             while true; do
+#               set +e
+#                 eksctl "$EKSCTL_COMMON_OPTS" delete nodegroup --timeout=8m --region="$REGION" --cluster="$CLUSTER_NAME" --wait "$nodegroup"
+#               set -e
+
+#               if $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup"; then
+#                 $0 with "$REGION" "$CLUSTER_NAME" wait-while-status "$nodegroup" "DELETING"
+#               fi
+
+#               $0 with "$REGION" "$CLUSTER_NAME" get "$nodegroup" || break
+#             done
+
+#             echo "nodegroup delete stacks"
+#             _forever  >/dev/null 2>&1    aws --region="$REGION" cloudformation delete-stack --stack-name="eksctl-${CLUSTER_NAME}-nodegroup-${nodegroup}"
+#             _never    >/dev/null 2>&1    aws --region="$REGION" cloudformation describe-stacks --stack-name="eksctl-${CLUSTER_NAME}-nodegroup-${nodegroup}"
+
+#             echo "nodegroup delete DONE in ${SECONDS}s"
+#           ;;
+#           status)
+#             2>/dev/null exec eksctl "$EKSCTL_COMMON_OPTS" get nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" "${*:5}" --output=json | jq -r '.[].Status'
+#           ;;
+#           get)
+#             2>/dev/null exec eksctl "$EKSCTL_COMMON_OPTS" get nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" "${*:5}" --output=json
+#           ;;
+#         esac
+#       ;;
+#       kubectl|k)
+#         exec kubectl "${*:5}"
+#       ;;
+#       *)
+#         _err "unknown with ${withcommand}"
+#       ;;
+#     esac
+#   ;;
+#   *)
+#     _err "unknown subcommand ${subcommand}"
+#   ;;
+# esac

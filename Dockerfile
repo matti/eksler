@@ -6,7 +6,10 @@ RUN export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y 
   ca-certificates \
   git curl unzip \
   gettext-base \
-  && rm -rf /var/lib/apt/lists/*
+  && apt-get clean
+
+RUN curl -Lsf -o /usr/local/bin/ec2-instance-selector "https://github.com/aws/amazon-ec2-instance-selector/releases/download/v2.3.0/ec2-instance-selector-linux-amd64" \
+  && chmod +x /usr/local/bin/ec2-instance-selector
 
 RUN git clone https://github.com/asdf-vm/asdf.git /asdf --branch v0.9.0 \
   && rm -rf /asdf/.git

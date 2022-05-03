@@ -2,18 +2,18 @@
 set -euo pipefail
 
 _echoerr() {
-  2>&1 echo "$@"
+  2>&1 echo "$*"
 }
 
 _err() {
-  _echoerr $@
+  _echoerr "err: $*"
   exit 1
 }
 
 case $1 in
   recreate)
     while true; do
-      docker-compose up --build --force-recreate --timeout 0 eksler
+      docker-compose up --build --force-recreate --timeout 0 eksler || true
       sleep 1
     done
   ;;
