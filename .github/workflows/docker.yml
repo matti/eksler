@@ -14,4 +14,4 @@ jobs:
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - run: docker buildx create --use
       - run: touch .env
-      - run: docker buildx bake --push
+      - run: docker buildx bake --progress=plain --push

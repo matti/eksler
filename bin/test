@@ -44,6 +44,7 @@ for configuration in base-2-4 test-2-4 test-4-8 test-8-16; do
 done
 
 wait
+
 KUBECONFIG=$(bin/eksler cluster "$REGION" "$CLUSTER_NAME" kubeconfig)
 export KUBECONFIG
 

@@ -2,15 +2,15 @@ version: '3'
 
 services:
   eksler:
-    build: .
-    x-bake:
-      tags:
-        - ghcr.io/${GITHUB_REPOSITORY}:latest
-        - ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_SHA}
-      platforms:
-        - linux/amd64
-        - linux/arm64
-    image: mattipaksula/eksler
+    build:
+      context: .
+      x-bake:
+        tags:
+          - ghcr.io/${GITHUB_REPOSITORY}:latest
+          - ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_SHA}
+        platforms:
+          - linux/amd64
+          - linux/arm64
     entrypoint:
       - "/app/entrypoint.sh"
     volumes:
