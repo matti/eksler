@@ -2,6 +2,23 @@
 set -eumo pipefail
 . ./functions.sh
 
+_shutdown() {
+  trap '' TERM INT ERR
+  echo ""
+  echo "SHUTDOWN ($0)"
+
+  trap '' TERM INT ERR
+
+  kill 0
+  wait
+
+  echo "bye. $0"
+  exit 0
+}
+
+trap _shutdown TERM INT ERR
+
+
 export AWS_PAGER=""
 export EKSCTL_COMMON_OPTS="-C false"
 

@@ -25,7 +25,6 @@ RUN git clone https://github.com/asdf-vm/asdf.git /asdf --branch v0.9.0 \
 WORKDIR /app
 
 COPY .tool-versions .
-
 RUN asdf plugin add eksctl
 RUN asdf plugin add kubectl
 RUN asdf plugin add helm

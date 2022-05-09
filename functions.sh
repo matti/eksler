@@ -1,20 +1,5 @@
 #!/usr/bin/env bash
 
-_shutdown() {
-  echo ""
-  echo "SHUTDOWN ($0)"
-
-  trap '' TERM INT ERR
-
-  kill 0
-  wait
-
-  echo "bye. $0"
-  exit 0
-}
-
-trap _shutdown TERM INT ERR
-
 _echoerr() {
   1>&2 echo "$@"
 }
