@@ -45,51 +45,50 @@ securityContext:
 # Time period for the controller pod to do a graceful shutdown
 terminationGracePeriodSeconds: 10
 
-resources:  # helmer
+resources:          # helmer
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  limits:
+  limits:           # helmer
     cpu: 1          # helmer
-    memory: 128Mi
-  requests:
-    cpu: 10m        # helmer
-    memory: 128Mi
+    memory: 128Mi   # helmer
+  requests:         # helmer
+    cpu: 100m       # helmer
+    memory: 128Mi   # helmer
 
 # priorityClassName specifies the PriorityClass to indicate the importance of controller pods
 # ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
 priorityClassName: system-cluster-critical
 
-nodeSelector:   # helmer
-  aws-load-balancer: "yes"
+nodeSelector: {}
 
-tolerations:  # helmer
-  - key: node.kubernetes.io/not-ready
-    operator: Exists
-    effect: NoExecute
-    tolerationSeconds: 10
-  - key: node.kubernetes.io/unreachable
-    operator: Exists
-    effect: NoExecute
-    tolerationSeconds: 10
+tolerations:                              # helmer
+  - key: node.kubernetes.io/not-ready     # helmer
+    operator: Exists                      # helmer
+    effect: NoExecute                     # helmer
+    tolerationSeconds: 10                 # helmer
+  - key: node.kubernetes.io/unreachable   # helmer
+    operator: Exists                      # helmer
+    effect: NoExecute                     # helmer
+    tolerationSeconds: 10                 # helmer
 
-affinity:  # helmer
-  podAntiAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-            - key: "app.kubernetes.io/instance"
-              operator: In
-              values:
-                - "aws-load-balancer-controller-1"
-        topologyKey: "kubernetes.io/hostname"
+affinity:                                           # helmer
+  podAntiAffinity:                                  # helmer
+    requiredDuringSchedulingIgnoredDuringExecution: # helmer
+      - labelSelector:                              # helmer
+          matchExpressions:                         # helmer
+            - key: "app.kubernetes.io/instance"     # helmer
+              operator: In                          # helmer
+              values:                               # helmer
+                - "aws-load-balancer-controller"    # helmer
+        topologyKey: "kubernetes.io/hostname"       # helmer
 
-updateStrategy:  # helmer
-  type: RollingUpdate
-  rollingUpdate:
-    maxSurge: 0
-    maxUnavailable: 1
+updateStrategy:         # helmer
+  type: RollingUpdate   # helmer
+  rollingUpdate:        # helmer
+    maxSurge: 0         # helmer
+    maxUnavailable: 1   # helmer
 
 # serviceAnnotations contains annotations to be added to the provisioned webhook service resource
 serviceAnnotations: {}
@@ -250,7 +249,7 @@ defaultTags: {}
 # podDisruptionBudget specifies the disruption budget for the controller pods.
 # Disruption budget will be configured only when the replicaCount is greater than 1
 podDisruptionBudget:  # helmer
-  maxUnavailable: 1
+  maxUnavailable: 1   # helmer
 
 # externalManagedTags is the list of tag keys on AWS resources that will be managed externally
 externalManagedTags: []

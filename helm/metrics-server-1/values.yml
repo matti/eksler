@@ -59,13 +59,13 @@ hostNetwork:
   # if you use Weave network on EKS
   enabled: false
 
-replicas: 2   # helmer
+replicas: 2      # helmer
 
-updateStrategy:  # helmer
-  type: RollingUpdate
-  rollingUpdate:
-    maxSurge: 0
-    maxUnavailable: 1
+updateStrategy:         # helmer
+  type: RollingUpdate   # helmer
+  rollingUpdate:        # helmer
+    maxSurge: 0         # helmer
+    maxUnavailable: 1   # helmer
 
 podDisruptionBudget:
   # https://kubernetes.io/docs/tasks/run-application/configure-pdb/
@@ -117,38 +117,37 @@ serviceMonitor:
   interval: 1m
   scrapeTimeout: 10s
 
-resources: # helmer
-  requests:
-    cpu: 100m
-    memory: 384Mi  # 189Mi when 8000 pods
-  limits:
-    cpu: 1
-    memory: 385Mi
+resources:            # helmer
+  requests:           # helmer
+    cpu: 100m         # helmer
+    memory: 128Mi     # helmer
+  limits:             # helmer
+    cpu: 1            # helmer
+    memory: 128Mi     # helmer
 
 extraVolumeMounts: []
 
 extraVolumes: []
 
-nodeSelector: # helmer
-  metrics-server: "yes"
+nodeSelector: {}
 
-tolerations: # helmer
-  - key: node.kubernetes.io/not-ready
-    operator: Exists
-    effect: NoExecute
-    tolerationSeconds: 10
-  - key: node.kubernetes.io/unreachable
-    operator: Exists
-    effect: NoExecute
-    tolerationSeconds: 10
+tolerations:                                # helmer
+  - key: node.kubernetes.io/not-ready       # helmer
+    operator: Exists                        # helmer
+    effect: NoExecute                       # helmer
+    tolerationSeconds: 10                   # helmer
+  - key: node.kubernetes.io/unreachable     # helmer
+    operator: Exists                        # helmer
+    effect: NoExecute                       # helmer
+    tolerationSeconds: 10                   # helmer
 
-affinity:  # helmer
-  podAntiAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-            - key: "app.kubernetes.io/name"
-              operator: In
-              values:
-                - "metrics-server"
-        topologyKey: "kubernetes.io/hostname"
+affinity:                                           # helmer
+  podAntiAffinity:                                  # helmer
+    requiredDuringSchedulingIgnoredDuringExecution: # helmer
+      - labelSelector:                              # helmer
+          matchExpressions:                         # helmer
+            - key: "app.kubernetes.io/name"         # helmer
+              operator: In                          # helmer
+              values:                               # helmer
+                - "metrics-server"                  # helmer
+        topologyKey: "kubernetes.io/hostname"       # helmer

@@ -1,0 +1,1 @@
+https://raw.githubusercontent.com/kubernetes-sigs/metrics-server/metrics-server-helm-chart-${VERSION}/charts/metrics-server/values.yaml

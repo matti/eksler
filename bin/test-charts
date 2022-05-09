@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export REGION=$1
+export CLUSTER_NAME=$2
+
+KUBECONFIG=$(bin/eksler cluster kubeconfig "$REGION" "$CLUSTER_NAME")
+export KUBECONFIG
+
+for chart in helm/*; do
+  repository=$(cat "$chart/repository")
+  version=$(cat "$chart/chart_version")
+  instance=${chart##*/}
+  name=${instance%-*}
+
+  (
+    exec helmer apply "$repository" "$name" "$version" "$instance" < "$chart/values.yml"
+  ) 2>&1 | sed -le "s#^#helm $instance: #;" &
+done
+
+wait

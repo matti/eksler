@@ -1,0 +1,1 @@
+https://raw.githubusercontent.com/kubernetes/ingress-nginx/helm-chart-${VERSION}/charts/ingress-nginx/values.yaml

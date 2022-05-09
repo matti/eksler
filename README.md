@@ -69,19 +69,9 @@ POOLS_REFRESH=yes POOLS="x-1-pre t-64-128-pre-p4-1" bin/test-main         eu-nor
 POOLS_REFRESH=yes POOLS="x-1-pre t-96-192-pre-p3-1" bin/test-main         eu-north-1  ninetysix       ipv6  1 1.21
 POOLS_REFRESH=yes bin/test-main         eu-north-1  sixtyfour-ninetysix       ipv6  1 1.21
 
+## test
 
-## envs
-
-POOLS="x-1-pre" bin/test-main         eu-north-1  north-1       ipv6  1 1.21
-
-
-POOLS="x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1" bin/test-main         eu-north-1  north-1       ipv6  1 1.21
-POOLS="x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1 t-48-96-pre-p5-1" bin/test-main         eu-north-1  north-2       ipv6  1 1.21
-
-bin/test-main         eu-west-1   west-2        ipv6  1 1.21
-
-bin/bot-main          us-east-1   putte-bot-1   ipv6  1 1.21
-bin/bot-main          eu-north-1  com-bot-1     ipv6  1 1.21
-
-bin/app-main          eu-west-1  vodka-app-1     ipv6  1 1.21
-bin/bot-main          eu-west-1  vodka-bot-1     ipv6  1 1.21
+```shell
+bin/test-prepare eu-north-1 test-1 ipv6 1.22
+bin/test-prepare eu-north-1 test-1 ipv6 1.22 create base-2-4
+```

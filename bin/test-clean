@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export REGION=$1
+export CLUSTER_NAME=$2
+target=$3
+
+case "$target" in
+  charts)
+    bin/eksler cluster delete-loadbalancers "$REGION" "$CLUSTER_NAME"
+
+    for instance in $(bin/eksler cluster helm "$REGION" "$CLUSTER_NAME" list -A -q); do
+      (
+        bin/eksler cluster helm "$REGION" "$CLUSTER_NAME" delete -n "$instance" "$instance"
+        bin/eksler cluster kubectl "$REGION" "$CLUSTER_NAME" delete namespace "$instance"
+      ) 2>&1 | sed -le "s#^#delete helm instance '$instance': #;" &
+    done
+
+    wait
+  ;;
+  nodes)
+    $0 charts "$REGION" "$CLUSTER_NAME"
+    bin/eksler managednodegroup delete-all "$REGION" "$CLUSTER_NAME"
+  ;;
+  cluster)
+    $0 charts "$REGION" "$CLUSTER_NAME"
+    $0 nodes "$REGION" "$CLUSTER_NAME"
+    bin/eksler cluster delete "$REGION" "$CLUSTER_NAME"
+  ;;
+  k8s-node-watchdog)
+    while true; do
+      bin/eksler cluster kubectl "$REGION" "$CLUSTER_NAME" delete namespace k8s-node-watchdog --ignore-not-found && break
+      sleep 1
+    done
+  ;;
+  test)
+    while true; do
+      bin/eksler cluster kubectl "$REGION" "$CLUSTER_NAME" delete namespace k8s-node-watchdog --ignore-not-found && break
+      sleep 1
+    done
+  ;;
+esac

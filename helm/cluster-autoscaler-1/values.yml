@@ -138,6 +138,10 @@ containerSecurityContext: {}
   #   drop:
   #   - ALL
 
+deployment:
+  # deployment.annotations -- Annotations to add to the Deployment object.
+  annotations: {}
+
 # dnsPolicy -- Defaults to `ClusterFirst`. Valid values are:
 # `ClusterFirstWithHostNet`, `ClusterFirst`, `Default` or `None`.
 # If autoscaler does not depend on cluster DNS, recommended to set this to `Default`.
@@ -147,28 +151,7 @@ dnsPolicy: ClusterFirst
 # expanderPriorities -- The expanderPriorities is used if `extraArgs.expander` contains `priority` and expanderPriorities is also set with the priorities.
 # If `extraArgs.expander` contains `priority`, then expanderPriorities is used to define cluster-autoscaler-priority-expander priorities.
 # See: https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/expander/priority/readme.md
-# helmer:
-expanderPriorities: |-
-  9:
-    - .*-p9-.*"
-  8:
-    - .*-p8-.*
-  7:
-    - .*-p7-.*
-  5:
-    - .*-p5-.*
-  4:
-    - .*-p4-.*
-  3:
-    - .*-p3-.*
-  2:
-    - .*-p2-.*
-  1:
-    - .*-p1-.*
-
-# helmer:
-# 0:            # TODO: maybe needed...?
-#   - .*
+expanderPriorities: {}
 
 # priorityConfigMapAnnotations -- Annotations to add to `cluster-autoscaler-priority-expander` ConfigMap.
 priorityConfigMapAnnotations: {}
@@ -183,33 +166,33 @@ extraArgs:
   logtostderr: true
   stderrthreshold: info
   v: 4
-  write-status-configmap: true  # helmer
-  status-config-map-name: cluster-autoscaler-status  # helmer
+  write-status-configmap: true                              # helmer
+  status-config-map-name: cluster-autoscaler-status         # helmer
   # leader-elect: true
   # leader-elect-resource-lock: endpoints
   # skip-nodes-with-local-storage: true
-  expander: most-pods  # helmer
+  expander: most-pods                                       # helmer
   # scale-down-enabled: true
   # balance-similar-node-groups: true
   # min-replica-count: 0
   # scale-down-utilization-threshold: 0.5
   # scale-down-non-empty-candidates-count: 30
-  max-node-provision-time: 5m0s  # helmer TODO: test with low value
+  max-node-provision-time: 5m0s                             # helmer
   # scan-interval: 10s
-  scale-down-delay-after-add: 5m  # helmer: NOTE: nodegroup is being created it is being registered etc in nodegroup, so do not scaledown immediately
+  scale-down-delay-after-add: 5m                            # helmer
   # scale-down-delay-after-delete: 0s
-  scale-down-delay-after-failure: 1m  # helmer
-  scale-down-unneeded-time: 1m  # helmer
+  scale-down-delay-after-failure: 1m                        # helmer
+  scale-down-unneeded-time: 1m                              # helmer
   # skip-nodes-with-system-pods: true
   # balancing-ignore-label_1: first-label-to-ignore
   # balancing-ignore-label_2: second-label-to-ignore
-  max-empty-bulk-delete: 100  # helmer
-  max-graceful-termination-sec: 10  # helmer
-  max-total-unready-percentage: 75  # helmer
-  ok-total-unready-count: 32  # helmer
-  max-inactivity: 3m  # helmer
-  max-failing-time: 3m  # helmer
-  unremovable-node-recheck-timeout: 1m  # helmer
+  max-empty-bulk-delete: 100                                # helmer
+  max-graceful-termination-sec: 10                          # helmer
+  max-total-unready-percentage: 75                          # helmer
+  ok-total-unready-count: 32                                # helmer
+  max-inactivity: 3m                                        # helmer
+  max-failing-time: 3m                                      # helmer
+  unremovable-node-recheck-timeout: 1m                      # helmer
 
 # extraEnv -- Additional container environment variables.
 extraEnv: {}
@@ -274,8 +257,7 @@ kubeTargetVersionOverride: ""
 nameOverride: ""
 
 # nodeSelector -- Node labels for pod assignment. Ref: https://kubernetes.io/docs/user-guide/node-selection/.
-nodeSelector:  # helmer
-  cluster-autoscaler: "yes"
+nodeSelector: {}
 
 # podAnnotations -- Annotations to add to each pod.
 podAnnotations: {}
@@ -316,13 +298,13 @@ rbac:
 replicaCount: 2  # helmer
 
 # resources -- Pod resource requests and limits.
-resources:  # helmer
-  limits:
-    cpu: 1
-    memory: 2048Mi  # helmer: OOMKilled with 1024Mi when 12000/15000 pods
-  requests:
-    cpu: 100m
-    memory: 2048Mi
+resources:            # helmer
+  limits:             # helmer
+    cpu: 1            # helmer
+    memory: 512Mi     # helmer
+  requests:           # helmer
+    cpu: 100m         # helmer
+    memory: 512Mi     # helmer
 
 # securityContext -- [Security context for pod](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 securityContext: {}
@@ -381,28 +363,28 @@ prometheusRule:
   rules: []
 
 # tolerations -- List of node taints to tolerate (requires Kubernetes >= 1.6).
-tolerations:  # helmer
-  - key: node.kubernetes.io/not-ready
-    operator: Exists
-    effect: NoExecute
-    tolerationSeconds: 10
-  - key: node.kubernetes.io/unreachable
-    operator: Exists
-    effect: NoExecute
-    tolerationSeconds: 10
+tolerations:                                # helmer
+  - key: node.kubernetes.io/not-ready       # helmer
+    operator: Exists                        # helmer
+    effect: NoExecute                       # helmer
+    tolerationSeconds: 10                   # helmer
+  - key: node.kubernetes.io/unreachable     # helmer
+    operator: Exists                        # helmer
+    effect: NoExecute                       # helmer
+    tolerationSeconds: 10                   # helmer
 
 # topologySpreadConstraints -- You can use topology spread constraints to control how Pods are spread across your cluster among failure-domains such as regions, zones, nodes, and other user-defined topology domains. (requires Kubernetes >= 1.19).
-topologySpreadConstraints:  # helmer
-  - maxSkew: 1
-    topologyKey: topology.kubernetes.io/zone
-    whenUnsatisfiable: DoNotSchedule
-    labelSelector:
-      matchLabels:
-        app.kubernetes.io/instance: cluster-autoscaler-1
+topologySpreadConstraints:                              # helmer
+  - maxSkew: 1                                          # helmer
+    topologyKey: topology.kubernetes.io/zone            # helmer
+    whenUnsatisfiable: DoNotSchedule                    # helmer
+    labelSelector:                                      # helmer
+      matchLabels:                                      # helmer
+        app.kubernetes.io/instance: cluster-autoscaler  # helmer
 
 # updateStrategy -- [Deployment update strategy](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy)
-updateStrategy: # helmer
-  rollingUpdate:
-    maxSurge: 0
-    maxUnavailable: 1
-  type: RollingUpdate
+updateStrategy:               # helmer
+  rollingUpdate:              # helmer
+    maxSurge: 0               # helmer
+    maxUnavailable: 1         # helmer
+  type: RollingUpdate         # helmer

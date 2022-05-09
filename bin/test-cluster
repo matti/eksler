@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export REGION=$1
+export CLUSTER_NAME=$2
+network=$3
+kubernetes_version=$4
+
+bin/eksler cluster create "$REGION" "$CLUSTER_NAME" "$network" "$kubernetes_version"
+
+KUBECONFIG=$(bin/eksler cluster kubeconfig "$REGION" "$CLUSTER_NAME")
+export KUBECONFIG
+
+# kubectl get node
+
+for chart in helm/*; do
+  repository=$(cat "$chart/repository")
+  version=$(cat "$chart/chart_version")
+  instance=${chart##*/}
+  name=${instance%-*}
+
+  (
+    exec helmer apply "$repository" "$name" "$version" "$instance" < "$chart/values.yml"
+  ) 2>&1 | sed -le "s#^#helm $instance: #;" &
+done
+
+# (
+#   while true; do
+#     kubectl delete ns k8s-node-watchdog --ignore-not-found --wait && break
+#     sleep 1
+#   done
+
+#   #TODO: fix to sha
+#   while true; do
+#     kubectl apply -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/main/install.yml && break
+#     sleep 1
+#   done
+# ) 2>&1 | sed -le "s#^#k8s-node-watchdog: #;" &
+
+# (
+#   _forever kubectl delete priorityclass -l megatest-1=yes --ignore-not-found
+#   _forever kubectl apply -f tests/megatest-1
+# ) 2>&1 | sed -le "s#^# megatest-1: #;" &
+
+# for chart in "cluster-autoscaler-1 test" aws-load-balancer-controller-1 metrics-server-1 descheduler-1 "ingress-nginx-1 ipv6"; do
+#   (
+#     bin/helmer install $chart
+#   ) 2>&1 | sed -le "s#^# helm $chart: #;" &
+# done
+
+# export POOLS=${POOLS:-x-1-pre t-2-4-pre-p9-1 t-8-16-pre-p8-1 t-16-32-pre-p7-1 t-32-64-pre-p6-1 t-48-96-pre-p5-1 t-64-128-pre-p4-1 t-96-192-pre-p3-1}
+
+# for pool in $POOLS; do
+#   (
+#     if [ "${POOLS_REFRESH:-}" != "yes" ]; then
+#       if bin/ekslerpooler get $REGION $CLUSTER_NAME $generation $pool; then
+#         _output "pool $pool already exists, skip"
+#         exit 0
+#       fi
+#     fi
+
+#     bin/test-pools $pool $REGION $CLUSTER_NAME $generation
+
+#     _done
+#   ) 2>&1 | sed -le "s#^# ++ pool [${SECONDS}]: $pool: #;" &
+# done
+
+# echo "waiting jobs ..."
+# wait
+# echo "..done"
+
+# bin/eksler with $REGION $CLUSTER_NAME list
+
+
+# TODO: https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2039
+# https://aws.amazon.com/premiumsupport/knowledge-center/eks-alb-ingress-controller-fargate/
+# https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/docs/install/iam_policy.json
+# bin/helmer install ingress-nginx-1 $network
+
+# bin/test-test $network
+
+wait

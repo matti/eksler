@@ -1,0 +1,1 @@
+https://raw.githubusercontent.com/kubernetes/autoscaler/cluster-autoscaler-chart-${VERSION}/charts/cluster-autoscaler/values.yaml

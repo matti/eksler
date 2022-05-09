@@ -12,10 +12,18 @@ _err() {
 
 case $1 in
   recreate)
-    while true; do
-      docker-compose up --build --force-recreate --timeout 0 eksler || true
-      sleep 1
-    done
+    case ${2:-} in
+      "")
+        while true; do
+          docker-compose up --build --force-recreate --timeout 0 eksler || true
+          sleep 1
+        done
+      ;;
+      "shell")
+        docker-compose up -d --build --force-recreate --timeout 0 eksler
+        exec $0 shell
+      ;;
+    esac
   ;;
   shell)
     while true; do
