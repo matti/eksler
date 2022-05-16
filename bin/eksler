@@ -61,6 +61,14 @@ _done() {
   _output "$* DONE in ${SECONDS}s"
 }
 
+_exit_unless_namespace_eksler() {
+  while true; do
+    kubectl_namespace_output=$(kubectl get namespace "eksler" --ignore-not-found) && break
+    sleep 1
+  done
+
+  [ "$kubectl_namespace_output" = "" ] && exit
+}
 
 export AWS_PAGER=""
 export EKSCTL_COMMON_OPTS="-C false"
@@ -347,6 +355,8 @@ kubernetesNetworkConfig:
           sleep 1
         done
 
+        _exit_unless_namespace_eksler
+
         while true; do
           output=$(kubectl get configmap -n "eksler" "managednodegroup-$name" -o jsonpath='{.data.yaml}' || true)
           [ "$output" != "" ] && break
@@ -354,7 +364,7 @@ kubernetesNetworkConfig:
         done
 
         printf "%s\n" "$output"
-        exit 0
+        exit
       ;;
       delete)
         while true; do
@@ -377,6 +387,8 @@ kubernetesNetworkConfig:
             aws --region="$REGION" cloudformation delete-stack --stack-name="$stack_name" || true
           done
         done
+
+        _exit_unless_namespace_eksler
 
         while true; do
           kubectl delete configmap -n "eksler" "managednodegroup-$name" --ignore-not-found && break
@@ -566,6 +578,8 @@ managedNodeGroups:
           kubectl create namespace eksler || true
           sleep 1
         done
+
+        _exit_unless_namespace_eksler
 
         while true; do
           kubectl get configmap -n eksler "managednodegroup-$name_revision" && break
