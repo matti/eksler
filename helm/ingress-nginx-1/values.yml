@@ -851,6 +851,7 @@ defaultBackend:
   ##
   nodeSelector:
     kubernetes.io/os: linux
+    ingress-nginx: yes        # helmer
 
   # -- Annotations to be added to default backend pods
   ##

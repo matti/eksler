@@ -1128,6 +1128,9 @@ server:
   ##
   retention: "1h"  # helmer
 
+  ## Array of extra Kubernetes manifests, if you want to deploy
+  extraObjects: []
+
 pushgateway:
   ## If false, pushgateway will not be installed
   ##

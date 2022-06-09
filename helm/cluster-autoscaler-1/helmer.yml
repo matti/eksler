@@ -1,0 +1,7 @@
+version: 1
+chart:
+  repository: https://kubernetes.github.io/autoscaler
+  name: cluster-autoscaler
+  version: 9.18.0
+  homepage: https://github.com/kubernetes/autoscaler/tree/master/charts/cluster-autoscaler
+  values: https://raw.githubusercontent.com/kubernetes/autoscaler/cluster-autoscaler-chart-${CHART_VERSION}/charts/cluster-autoscaler/values.yaml

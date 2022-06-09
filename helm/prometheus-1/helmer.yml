@@ -1,0 +1,7 @@
+version: 1
+chart:
+  repository: https://prometheus-community.github.io/helm-charts
+  name: prometheus
+  version: 15.8.6
+  homepage: https://github.com/prometheus-community/helm-charts/tree/main/charts/prometheus
+  values: https://raw.githubusercontent.com/prometheus-community/helm-charts/prometheus-${CHART_VERSION}/charts/prometheus/values.yaml

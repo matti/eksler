@@ -8,25 +8,18 @@ kubernetes_version=$4
 
 bin/test-cluster "$REGION" "$CLUSTER_NAME" "$network" "$kubernetes_version"
 
-(
-  while true; do
-    bin/eksler cluster kubectl "$REGION" "$CLUSTER_NAME" delete ns k8s-node-watchdog --ignore-not-found --wait && break
-    sleep 1
-  done
-
-  while true; do
-    bin/eksler cluster kubectl "$REGION" "$CLUSTER_NAME"  -f https://raw.githubusercontent.com/matti/k8s-node-watchdog/main/install.yml && break
-    sleep 1
-  done
-) 2>&1 | sed -le "s#^#k8s-node-watchdog: #;" &
 
 (
-  exec bin/test-nodes
+  exec bin/test-nodes "$REGION" "$CLUSTER_NAME"
+) 2>&1 | sed -le "s#^#test-configure: #;" &
+
+(
+  exec bin/test-nodes "$REGION" "$CLUSTER_NAME"
 ) 2>&1 | sed -le "s#^#test-nodes: #;" &
 (
-  exec bin/test-charts
+  exec bin/test-charts "$REGION" "$CLUSTER_NAME"
 ) 2>&1 | sed -le "s#^#test-charts: #;" &
 
 wait
 
-bin/test-test
+bin/test-test "$REGION" "$CLUSTER_NAME"

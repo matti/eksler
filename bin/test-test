@@ -11,6 +11,11 @@ export KUBECONFIG
 bin/test-clean "$REGION" "$CLUSTER_NAME" test
 
 while true; do
+  kubectl apply -f "tests/megatest-1" && break
+  sleep 1
+done
+
+while true; do
   kubectl apply -f tests/eksler-test-1/main.yml && break
   sleep 1
 done
@@ -56,11 +61,6 @@ echo "testing ingress hostname: ${lb_hostname}"
 while true; do
   curl --max-time 3 -fsL -H 'Host: todo' "$ingress_hostname" && break
   echo retry
-  sleep 1
-done
-
-while true; do
-  kubectl apply -f "tests/megatest-1" && break
   sleep 1
 done
 
