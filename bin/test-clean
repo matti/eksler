@@ -1,20 +1,54 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export REGION=$1
-export CLUSTER_NAME=$2
-target=$3
+export CMD=${1:-bin/eksler}
+export REGION=$2
+export CLUSTER_NAME=$3
+target=$4
 
 case "$target" in
-  charts)
-    for instance in $(bin/eksler cluster helm "$REGION" "$CLUSTER_NAME" list -A -q); do
-      (
+  test)
+    (
+      while true; do
+        "$CMD" cluster kubectl "$REGION" "$CLUSTER_NAME" delete namespace eksler-test-1 --ignore-not-found && break
+        sleep 1
+      done
+      echo "OK: clean"
+    ) 2>&1 | sed -le "s#^#namespace eksler-test-1: #;" &
+    (
+      while true; do
+        "$CMD" cluster kubectl "$REGION" "$CLUSTER_NAME" delete namespace megatest-1 --ignore-not-found && break
+        sleep 1
+      done
+      echo "OK: clean"
+    ) 2>&1 | sed -le "s#^#namespace megatest-1: #;" &
+    (
+      for priority_class in megatest-1 megatest-1-puller megatest-1-mega; do
         while true; do
-          bin/eksler cluster helm "$REGION" "$CLUSTER_NAME" delete -n "$instance" "$instance" && break
+          "$CMD" cluster kubectl "$REGION" "$CLUSTER_NAME" delete priorityclass "$priority_class" --ignore-not-found && break
           sleep 1
         done
+        echo "$priority_class"
+      done
+      echo "OK: test clean"
+    ) 2>&1 | sed -le "s#^#priorityclasses: #;" &
+
+    wait
+  ;;
+  charts)
+    $0 "$CMD" "$REGION" "$CLUSTER_NAME" test
+
+    for instance in $("$CMD" cluster helm "$REGION" "$CLUSTER_NAME" list -A -q); do
+      (
+        "$CMD" cluster delete-loadbalancers "$REGION" "$CLUSTER_NAME" "$instance"
+
         while true; do
-          bin/eksler cluster kubectl "$REGION" "$CLUSTER_NAME" delete namespace "$instance" --ignore-not-found && break
+          "$CMD" cluster helm "$REGION" "$CLUSTER_NAME" delete -n "$instance" "$instance" && break
+          sleep 1
+        done
+
+        while true; do
+          "$CMD" cluster kubectl "$REGION" "$CLUSTER_NAME" delete namespace "$instance" --ignore-not-found && break
           sleep 1
         done
       ) 2>&1 | sed -le "s#^#delete helm instance '$instance': #;" &
@@ -22,49 +56,31 @@ case "$target" in
 
     wait
 
-    bin/eksler cluster delete-loadbalancers "$REGION" "$CLUSTER_NAME"
-
-    echo "OK"
+    echo "OK: charts clean"
   ;;
-  nodes)
-    $0 "$REGION" "$CLUSTER_NAME" test
-    $0 "$REGION" "$CLUSTER_NAME" charts
-    bin/eksler managednodegroup delete-all "$REGION" "$CLUSTER_NAME"
-  ;;
-  k8s-node-watchdog)
+  configure)
+    $0 "$CMD" "$REGION" "$CLUSTER_NAME" charts
     while true; do
-      bin/eksler cluster kubectl "$REGION" "$CLUSTER_NAME" delete namespace k8s-node-watchdog --ignore-not-found && break
+      "$CMD" cluster kubectl "$REGION" "$CLUSTER_NAME" delete namespace k8s-node-watchdog --ignore-not-found && break
       sleep 1
     done
-  ;;
-  test)
-    (
-      while true; do
-        bin/eksler cluster kubectl "$REGION" "$CLUSTER_NAME" delete namespace eksler-test-1 --ignore-not-found && break
-        sleep 1
-      done
-      echo "OK"
-    ) 2>&1 | sed -le "s#^#namespace eksler-test-1: #;" &
-    (
-      while true; do
-        bin/eksler cluster kubectl "$REGION" "$CLUSTER_NAME" delete namespace megatest-1 --ignore-not-found && break
-        sleep 1
-      done
-      echo "OK"
-    ) 2>&1 | sed -le "s#^#namespace megatest-1: #;" &
-    (
-      while true; do
-        bin/eksler cluster kubectl "$REGION" "$CLUSTER_NAME" delete priorityclass megatest-1 --ignore-not-found && break
-        sleep 1
-      done
-      echo "OK"
-    ) 2>&1 | sed -le "s#^#priorityclass with label megatest-1: #;" &
 
-    wait
+    echo "OK: configure clean"
+  ;;
+  nodes)
+    $0 "$CMD" "$REGION" "$CLUSTER_NAME" configure
+    "$CMD" managednodegroup delete-all "$REGION" "$CLUSTER_NAME"
+
+    echo "OK: nodes clean"
   ;;
   cluster)
-    $0 "$REGION" "$CLUSTER_NAME" nodes
-    bin/eksler cluster delete "$REGION" "$CLUSTER_NAME"
+    $0 "$CMD" "$REGION" "$CLUSTER_NAME" nodes
+    $0 "$CMD" "$REGION" "$CLUSTER_NAME" cluster:force
+
+    echo "OK: cluster clean"
+  ;;
+  cluster:force)
+    "$CMD" cluster delete "$REGION" "$CLUSTER_NAME"
   ;;
   *)
     2>&1 echo "wat?"

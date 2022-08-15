@@ -22,10 +22,10 @@ RUN asdf plugin add helm
 RUN asdf plugin add awscli
 RUN asdf install
 
-RUN curl -Lsf -o /usr/local/bin/ec2-instance-selector "https://github.com/aws/amazon-ec2-instance-selector/releases/download/v2.3.0/ec2-instance-selector-linux-amd64" \
+RUN curl -Lsf -o /usr/local/bin/ec2-instance-selector "https://github.com/aws/amazon-ec2-instance-selector/releases/download/v2.3.3/ec2-instance-selector-linux-amd64" \
   && chmod +x /usr/local/bin/ec2-instance-selector
 
-RUN curl -Lsf -o /usr/local/bin/helmer https://raw.githubusercontent.com/matti/helmer/85cfcbd8743e79ac985f217dd462ef8496572e09/helmer \
+RUN curl -Lsf -o /usr/local/bin/helmer https://raw.githubusercontent.com/matti/helmer/f824ee073265906a3d0cba0cd8bffae45047e522/helmer \
   && chmod +x /usr/local/bin/helmer
 
 RUN curl -Lsf -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 \

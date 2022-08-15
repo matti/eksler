@@ -34,8 +34,8 @@ kubernetes_version=$4
 export REGION CLUSTER_NAME
 
 set -x
-# eksler list "$REGION"
-# eksler ami "$REGION" "$kubernetes_version"
+eksler list "$REGION"
+eksler ami "$REGION" "$kubernetes_version"
 # eksler cluster ensure "$REGION" "$CLUSTER_NAME" "$network" "$kubernetes_version"
 # eksler cluster kubeconfig:contents "$REGION" "$CLUSTER_NAME"
 # eksler cluster delete-loadbalancers "$REGION" "$CLUSTER_NAME"
@@ -45,5 +45,5 @@ set -x
 
 # eksler managednodegroup list "$REGION" "$CLUSTER_NAME"
 # eksler managednodegroup get "$REGION" "$CLUSTER_NAME" nonexisting && exit 1
-eksler managednodegroup delete "$REGION" "$CLUSTER_NAME" nonexisting && exit 1
-eksler managednodegroup delete-all "$REGION" "$CLUSTER_NAME"
+# eksler managednodegroup delete "$REGION" "$CLUSTER_NAME" nonexisting && exit 1
+# eksler managednodegroup delete-all "$REGION" "$CLUSTER_NAME"

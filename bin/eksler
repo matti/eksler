@@ -72,13 +72,18 @@ handled=yes
 subcommand=${1:-}
 case "${subcommand}" in
   regions)
+    if [[ -f /tmp/eksler-regions ]]; then
+      cat /tmp/eksler-regions
+      exit 0
+    fi
+
     while true; do
       # command requires *any* region, that's why us-east-1 hardcoded
       output=$(aws ec2 --region us-east-1 describe-regions --output text  --query='Regions[*].RegionName') && break
       sleep 1
     done
 
-    echo "$output" | xargs -n1 | sort | xargs
+    echo "$output" | xargs -n1 | sort | xargs | tee /tmp/eksler-regions
   ;;
   list)
     region=${2:-}
@@ -246,6 +251,7 @@ metadata:
   region: '${REGION}'
   version: '${kubernetes_version}'
 
+# NOTE: These addons are required in this file for ipv6 to work
 addons:
   - name: vpc-cni
   - name: coredns
@@ -297,8 +303,15 @@ kubernetesNetworkConfig:
         cat "$($0 cluster kubeconfig "$REGION" "$CLUSTER_NAME")"
       ;;
       delete-loadbalancers)
+        if [[ "${5:-}" = "" ]]; then
+          namespace_opt="--all-namespaces"
+        else
+          namespace_opt="-n $5"
+        fi
+
         while true; do
-          kubectl get svc --all-namespaces -o=jsonpath='{.items[?(@.spec.type=="LoadBalancer")]}' | kubectl delete -f - && break
+          kubectl get svc $namespace_opt -o=jsonpath='{.items[?(@.spec.type=="LoadBalancer")]}' | kubectl delete -f - && break
+
           sleep 1
         done
       ;;
@@ -378,8 +391,7 @@ kubernetesNetworkConfig:
         _assert_namespace "eksler"
 
         while true; do
-          output=$(kubectl get configmap -n "eksler" "managednodegroup-$name" -o jsonpath='{.data.yaml}' || true)
-          [ "$output" != "" ] && break
+          output=$(kubectl get configmap -n "eksler" "managednodegroup-$name" -o jsonpath='{.data.yaml}' --ignore-not-found) && break
           sleep 1
         done
 
@@ -388,7 +400,7 @@ kubernetesNetworkConfig:
       ;;
       delete)
         while true; do
-          >/dev/null $0 managednodegroup get "$REGION" "$CLUSTER_NAME" "$name" || break
+          $0 managednodegroup get "$REGION" "$CLUSTER_NAME" "$name" || break
 
           eksctl "$EKSCTL_COMMON_OPTS" delete nodegroup --region="$REGION" --cluster="$CLUSTER_NAME" --wait "$name" || true
           sleep 1
@@ -525,7 +537,7 @@ kubernetesNetworkConfig:
         max_size=${max_size:-450}
 
         labels_indented=""
-        tags_intented=""
+        tags_intended=""
         for label_pair in $label_pairs; do
           key=${label_pair%=*}
           value=${label_pair#*=}
@@ -571,6 +583,7 @@ managedNodeGroups:
         imageBuilder: true
         ebs: true
         albIngress: true
+        cloudWatch: true
     instanceTypes: $instances_indented
     preBootstrapCommands:
       - date > /tmp/eksler.start
@@ -592,16 +605,7 @@ managedNodeGroups:
 
         cat "/tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$name-$revision.yml"
 
-        while true; do
-          _output "get nodegroup"
-          $0 managednodegroup get "$REGION" "$CLUSTER_NAME" "$name_revision" && break
-
-          if ! eksctl "$EKSCTL_COMMON_OPTS" create nodegroup --timeout 6m -f "/tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$name-$revision.yml"; then
-            _output "failed, delete"
-            $0 managednodegroup delete "$REGION" "$CLUSTER_NAME" "$name_revision"
-          fi
-        done
-
+        # NOTE: keep configmap creation before actual creation for cleanup reasons
         while true; do
           >/dev/null 2>&1 kubectl get namespace eksler && break
           >/dev/null 2>&1 kubectl create namespace eksler && break
@@ -612,8 +616,65 @@ managedNodeGroups:
           kubectl create configmap -n eksler "managednodegroup-$name_revision" --from-file=yaml="/tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$name-$revision.yml" && break
         done
 
+        while true; do
+          _output "get nodegroup"
+          $0 managednodegroup get "$REGION" "$CLUSTER_NAME" "$name_revision" && break
+
+          if ! eksctl "$EKSCTL_COMMON_OPTS" create nodegroup --timeout 6m -f "/tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$name-$revision.yml"; then
+            _output "failed, delete"
+            $0 managednodegroup delete "$REGION" "$CLUSTER_NAME" "$name_revision"
+          fi
+        done
+
+        $0 managednodegroup tag "$REGION" "$CLUSTER_NAME" "$name_revision"
+
         _output "purge"
         $0 managednodegroup purge "$REGION" "$CLUSTER_NAME" "$name" "$name_revision"
+      ;;
+      tag)
+        while true; do
+          asg=$(
+            aws eks describe-nodegroup --region "$REGION" --cluster-name "$CLUSTER_NAME" \
+              --nodegroup-name "$name" \
+              --query "nodegroup.resources.autoScalingGroups[0].name" \
+              --output text
+          ) && break
+
+          echo "failed to describe-nodegroup asgs"
+          sleep 1
+        done
+
+        while true; do
+          labels=$(
+            aws eks describe-nodegroup --region "$REGION" --cluster-name "$CLUSTER_NAME" \
+              --nodegroup-name "$name" \
+              --query "nodegroup.labels" \
+              --output=json | jq -r 'to_entries[] | .key + "=" + .value'
+          ) && break
+
+          echo "failed to describe-nodegroup labels"
+          sleep 1
+        done
+
+        for label in $labels; do
+          label_key=${label%=*}
+          label_value=${label#*=}
+
+          case $label_key in
+            alpha.eksctl.io*)
+              echo "skip: $label"
+              continue
+            ;;
+          esac
+
+          while true; do
+            aws autoscaling create-or-update-tags --region "$REGION" \
+              --tags "ResourceId=${asg},ResourceType=auto-scaling-group,Key=k8s.io/cluster-autoscaler/node-template/label/${label_key},Value=${label_value},PropagateAtLaunch=true" && break
+
+            echo "failed to create-or-update-tags"
+            sleep 1
+          done
+        done
       ;;
       *)
         handled=no

@@ -1,0 +1,10 @@
+version: 1
+chart:
+  repository: https://aws.github.io/eks-charts
+  name: aws-for-fluent-bit
+  version: 0.1.19
+  homepage: https://github.com/aws/eks-charts/tree/master/stable/aws-for-fluent-bit
+  # eks-chart tags by "eks-chart release" as it contains all charts
+  values: https://raw.githubusercontent.com/aws/eks-charts/v0.0.97/stable/aws-for-fluent-bit/values.yaml
+app:
+  version: 2.21.5

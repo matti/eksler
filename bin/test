@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REGION=$1
-CLUSTER_NAME=$2
-network=$3
-kubernetes_version=$4
+CMD=${1:-bin/eksler}
+REGION=$2
+CLUSTER_NAME=$3
+network=$4
+kubernetes_version=$5
 
-bin/test-cluster "$REGION" "$CLUSTER_NAME" "$network" "$kubernetes_version"
-
-
-(
-  exec bin/test-nodes "$REGION" "$CLUSTER_NAME"
-) 2>&1 | sed -le "s#^#test-configure: #;" &
+bin/test-cluster "$CMD" "$REGION" "$CLUSTER_NAME" "$network" "$kubernetes_version"
 
 (
-  exec bin/test-nodes "$REGION" "$CLUSTER_NAME"
-) 2>&1 | sed -le "s#^#test-nodes: #;" &
+  exec bin/test-configure "$CMD" "$REGION" "$CLUSTER_NAME"
+) 2>&1 | tee "/tmp/eksler.$REGION.$CLUSTER_NAME.test-configure" | sed -le "s#^#test-configure: #;" &
 (
-  exec bin/test-charts "$REGION" "$CLUSTER_NAME"
-) 2>&1 | sed -le "s#^#test-charts: #;" &
+  exec bin/test-nodes "$CMD" "$REGION" "$CLUSTER_NAME"
+) 2>&1 | tee "/tmp/eksler.$REGION.$CLUSTER_NAME.test-nodes" | sed -le "s#^#test-nodes: #;" &
+(
+  exec bin/test-charts "$CMD" "$REGION" "$CLUSTER_NAME"
+) 2>&1 | tee "/tmp/eksler.$REGION.$CLUSTER_NAME.test-charts" | sed -le "s#^#test-charts: #;" &
 
 wait
-
-bin/test-test "$REGION" "$CLUSTER_NAME"
+echo ""
+echo "--[ bin/test-test $CMD $REGION $CLUSTER_NAME $network ]--"
+bin/test-test "$CMD" "$REGION" "$CLUSTER_NAME" "$network"

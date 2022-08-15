@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REGION="$1"
-CLUSTER_NAME="$2"
+CMD=${1:-bin/eksler}
+REGION="$2"
+CLUSTER_NAME="$3"
 export REGION CLUSTER_NAME
 
-KUBECONFIG=$(bin/eksler cluster kubeconfig "$REGION" "$CLUSTER_NAME")
+KUBECONFIG=$("$CMD" cluster kubeconfig "$REGION" "$CLUSTER_NAME")
 export KUBECONFIG
 
 (
@@ -16,3 +17,5 @@ export KUBECONFIG
 ) 2>&1 | sed -le "s#^#k8s-node-watchdog: #;" &
 
 wait
+
+echo "test-configure: OK"

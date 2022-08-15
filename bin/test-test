@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export REGION=$1
-export CLUSTER_NAME=$2
-network=$3
+CMD=${1:-bin/eksler}
+export REGION=$2
+export CLUSTER_NAME=$3
+network=$4
 
-KUBECONFIG=$(bin/eksler cluster kubeconfig "$REGION" "$CLUSTER_NAME")
+KUBECONFIG=$($CMD cluster kubeconfig "$REGION" "$CLUSTER_NAME")
 export KUBECONFIG
 
-bin/test-clean "$REGION" "$CLUSTER_NAME" test
+bin/test-clean "$CMD" "$REGION" "$CLUSTER_NAME" test
 
 while true; do
   kubectl apply -f "tests/megatest-1" && break
@@ -20,6 +21,54 @@ while true; do
   sleep 1
 done
 
+(
+  while true; do
+    kubectl scale -n megatest-1 deploy/megatest-pod-1 --replicas 10 && break
+    sleep 1
+  done
+
+  while true; do
+    replicas=$(kubectl get deploy megatest-pod-1 -n megatest-1 -o jsonpath='{.status.availableReplicas}' || true)
+    kubectl get deploy -n megatest-1 megatest-pod-1 --no-headers || true
+    [[ "$replicas" == 10 ]] && break
+
+    sleep 5
+  done
+
+  while true; do
+    kubectl scale -n megatest-1 deploy/megatest-pod-1 --replicas 0 && break
+    sleep 1
+  done
+
+  echo "OK"
+) 2>&1 | sed -le "s#^#megatest-pod: #;" &
+
+(
+  while true; do
+    kubectl scale -n megatest-1 deploy/megatest-node-1 --replicas 3 && break
+  done
+
+  while true; do
+    replicas=$(kubectl get deploy megatest-node-1 -n megatest-1 -o jsonpath='{.status.availableReplicas}' || true)
+    kubectl get deploy -n megatest-1 megatest-node-1 --no-headers || true
+    [[ "$replicas" == 3 ]] && break
+
+    sleep 5
+  done
+
+  while true; do
+    kubectl scale -n megatest-1 deploy/megatest-node-1 --replicas 0 && break
+    sleep 1
+  done
+
+  echo "OK"
+) 2>&1 | sed -le "s#^#megatest-node: #;" &
+
+if [[ ! -f  "tests/eksler-test-1/${network}.yml" ]]; then
+  echo "tests/eksler-test-1/${network}.yml not found"
+  exit 1
+fi
+
 while true; do
   kubectl apply -f "tests/eksler-test-1/${network}.yml" && break
   sleep 1
@@ -27,42 +76,48 @@ done
 
 export CURLOPT_DNS_CACHE_TIMEOUT=1
 
-while true; do
-  lb_hostname=$(
-    kubectl get service -n eksler-test-1 whoami-lb \
+(
+  while true; do
+    lb_hostname=$(
+      kubectl get service -n eksler-test-1 whoami-lb \
+          --output=jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+    ) && break
+
+    echo "waiting for lb hostname"
+    sleep 5
+  done
+
+  echo "testing lb hostname: ${lb_hostname}"
+
+  while true; do
+    curl --max-time 3 -fsL "$lb_hostname" && break
+    echo "retry"
+    sleep 5
+  done
+
+  echo "OK"
+) 2>&1 | sed -le "s#^#loadbalancer: #;" &
+
+(
+  while true; do
+    ingress_hostname=$(
+      kubectl get ingress -n eksler-test-1 whoami \
         --output=jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-  ) && break
+    ) && break
 
-  echo "waiting for lb hostname"
-  sleep 1
-done
+    echo "waiting for ingress_hostname"
+    sleep 5
+  done
 
-echo "testing lb hostname: ${lb_hostname}"
+  echo "testing ingress hostname: ${lb_hostname}"
+  while true; do
+    curl --max-time 3 -fsL -H 'Host: todo' "$ingress_hostname" && break
+    echo retry
+    sleep 5
+  done
+  echo "OK"
+) 2>&1 | sed -le "s#^#ingress: #;" &
 
-while true; do
-  curl --max-time 3 -fsL "$lb_hostname" && break
-  echo "retry"
-  sleep 1
-done
-
-echo "ok"
-
-while true; do
-  ingress_hostname=$(
-    kubectl get ingress -n eksler-test-1 whoami \
-      --output=jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-  ) && break
-
-  echo "waiting for ingress_hostname"
-  sleep 1
-done
-
-echo "testing ingress hostname: ${lb_hostname}"
-while true; do
-  curl --max-time 3 -fsL -H 'Host: todo' "$ingress_hostname" && break
-  echo retry
-  sleep 1
-done
-
+wait
 echo ""
-echo "OK"
+echo "test-test: $REGION $CLUSTER_NAME OK"
