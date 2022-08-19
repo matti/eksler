@@ -131,10 +131,10 @@ case "${subcommand}" in
 
     while true; do
       output=$(
-        2>&1 ec2-instance-selector \
+        ec2-instance-selector \
           --region="$region" \
           --vcpus="$vcpus" \
-          --memory="$memory" \
+          --memory-min="$memory" \
           --hypervisor nitro \
           --cpu-architecture x86_64 \
           --gpus 0 \
@@ -142,6 +142,7 @@ case "${subcommand}" in
           --root-device-type ebs \
           --deny-list "^vt.|^inf.|d\.|en\.|dn\." \
           --usage-class="$class" \
+          --price-per-hour-max 2 \
           --max-results 100
       ) && break
 
@@ -593,14 +594,15 @@ managedNodeGroups:
       - sudo yum install -y htop iotop nano screen bind-utils
       - sudo amazon-linux-extras install epel -y
       - date > /tmp/eksler.done
-    ami: '$ami'
-    overrideBootstrapCommand: |
-      #!/bin/bash
-      set -euo pipefail
-      date > /tmp/eksler.bootstrap.start
-      /etc/eks/bootstrap.sh '$CLUSTER_NAME' |& tee /tmp/eksler.bootstrap.output
-      echo $? > /tmp/eksler.bootstrap.status
-      date > /tmp/eksler.bootstrap.done
+    # NOTE: broken (?) since 14.8.2022 or so
+    # ami: '$ami'
+    # overrideBootstrapCommand: |
+    #   #!/bin/bash
+    #   set -euo pipefail
+    #   date > /tmp/eksler.bootstrap.start
+    #   /etc/eks/bootstrap.sh '$CLUSTER_NAME' |& tee /tmp/eksler.bootstrap.output
+    #   echo $? > /tmp/eksler.bootstrap.status
+    #   date > /tmp/eksler.bootstrap.done
 """ > "/tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$name-$revision.yml"
 
         cat "/tmp/eksler.$REGION.$CLUSTER_NAME.nodegroup.$name-$revision.yml"

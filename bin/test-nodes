@@ -6,36 +6,29 @@ export REGION=$2
 export CLUSTER_NAME=$3
 mode=${4:-ensure}
 configurations=${*:5}
-[ "$configurations" = "" ] && configurations="base-2-8-6 test-2-4-6 test-4-8-6 test-8-16-6 test-16-32-6 test-32-64-6 test-48-64-6 test-96-128-6"
+[ "$configurations" = "" ] && configurations="\
+  cluster-2-8-6-2-9 \
+  prometheus-2-8-6-1-2 \
+  bot-4-8-6-2-4 bot-8-16-6-0-450 bot-16-32-6-0-450 bot-32-64-6-0-450 bot-48-64-6-0-450 bot-96-128-6-0-450"
 
 for configuration in $configurations; do
   name=${configuration%%-*}
   resources=${configuration#*-}
-  IFS=- read -r cpus mem disk_size <<< "$resources"
+  IFS=- read -r cpus mem disk_size min max <<< "$resources"
 
-  case $name in
-    base)
-      min=2
-      max=9
-      labels=""
-    ;;
-    *)
-      min=0
-      max=450
-      labels=test=yes
-    ;;
-  esac
+  labels="$name=yes"
 
   label_opts=""
   for label in $labels; do
     label_opts="$label_opts --label=$label"
   done
 
+  # NOTE: --memory is --memory-min internally
   (
     "$CMD" managednodegroup "$mode" "$REGION" "$CLUSTER_NAME" "$configuration" \
       --class=spot \
       --vcpus="$cpus" --memory="$mem" --volume-size="$disk_size" \
-      --min-size=$min --max-size=$max \
+      --min-size="$min" --max-size="$max" \
       $label_opts
   ) 2>&1 | sed -le "s#^#$configuration: #;" &
 done

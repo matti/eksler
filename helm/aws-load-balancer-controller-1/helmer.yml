@@ -2,8 +2,8 @@ version: 1
 chart:
   repository: https://aws.github.io/eks-charts
   name: aws-load-balancer-controller
-  version: 1.4.1
+  version: 1.4.4
   homepage: https://github.com/kubernetes-sigs/aws-load-balancer-controller/tree/main/helm/aws-load-balancer-controller
   values: https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v${APP_VERSION}/helm/aws-load-balancer-controller/values.yaml
 app:
-  version: 2.4.1
+  version: 2.4.3

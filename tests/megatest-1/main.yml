@@ -54,7 +54,7 @@ spec:
       priorityClassName: megatest-1-puller
       terminationGracePeriodSeconds: 0
       nodeSelector:
-        test: "yes"
+        bot: "yes"
       containers:
       - name: puller
         image: gcr.io/google-containers/pause-amd64:3.2
@@ -87,7 +87,7 @@ spec:
       priorityClassName: megatest-1-mega
       terminationGracePeriodSeconds: 0
       nodeSelector:
-        test: "yes"
+        bot: "yes"
       containers:
         - name: pause
           image: gcr.io/google-containers/pause-amd64:3.2
@@ -130,7 +130,7 @@ spec:
       priorityClassName: megatest-1-mega
       terminationGracePeriodSeconds: 0
       nodeSelector:
-        test: "yes"
+        bot: "yes"
       containers:
         - name: pause
           image: gcr.io/google-containers/pause-amd64:3.2

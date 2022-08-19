@@ -6,7 +6,7 @@ replicaCount: 2
 
 image:
   repository: 602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller
-  tag: v2.4.1
+  tag: v2.4.3
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -26,6 +26,9 @@ serviceAccount:
   name:
   # Automount API credentials for a Service Account.
   automountServiceAccountToken: true
+  # List of image pull secrets to add to the Service Account.
+  imagePullSecrets:
+    # - name: docker
 
 rbac:
   # Specifies whether rbac resources should be created
@@ -61,7 +64,8 @@ resources:          # helmer
 # ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
 priorityClassName: system-cluster-critical
 
-nodeSelector: {}
+nodeSelector:     # helmer
+  cluster: "yes"  # helmer
 
 tolerations:                              # helmer
   - key: node.kubernetes.io/not-ready     # helmer
@@ -93,9 +97,15 @@ updateStrategy:         # helmer
 # serviceAnnotations contains annotations to be added to the provisioned webhook service resource
 serviceAnnotations: {}
 
+# deploymentAnnotations contains annotations for the controller deployment
+deploymentAnnotations: {}
+
 podAnnotations: {}
 
 podLabels: {}
+
+# additionalLabels -- Labels to add to each object of the chart.
+additionalLabels: {}
 
 # Enable cert-manager
 enableCertManager: false
@@ -133,8 +143,15 @@ vpcId:
 # Custom AWS API Endpoints (serviceID1=URL1,serviceID2=URL2)
 awsApiEndpoints:
 
+# awsApiThrottle specifies custom AWS API throttle settings (serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst)
+# example: --set awsApiThrottle="{Elastic Load Balancing v2:RegisterTargets|DeregisterTargets=4:20,Elastic Load Balancing v2:.*=10:40}"
+awsApiThrottle:
+
 # Maximum retries for AWS APIs (default 10)
 awsMaxRetries:
+
+
+
 
 # If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods (default true)
 enablePodReadinessGateInject:
@@ -165,6 +182,13 @@ webhookTLS:
   caCert:
   cert:
   key:
+
+# array of namespace selectors for the webhook
+webhookNamespaceSelector:
+# - key: elbv2.k8s.aws/pod-readiness-gate-inject
+#   operator: In
+#   values:
+#   - enabled
 
 # keepTLSSecret specifies whether to reuse existing TLS secret for chart upgrade
 keepTLSSecret: true
@@ -283,6 +307,8 @@ serviceMonitor:
   additionalLabels: {}
   # Prometheus scrape interval
   interval: 1m
+  # Namespace to create the service monitor in
+  namespace:
 
 # clusterSecretsPermissions lets you configure RBAC permissions for secret resources
 # Access to secrets resource is required only if you use the OIDC feature, and instead of

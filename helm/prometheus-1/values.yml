@@ -48,7 +48,7 @@ alertmanager:
   ##
   image:
     repository: quay.io/prometheus/alertmanager
-    tag: v0.23.0
+    tag: v0.24.0
     pullPolicy: IfNotPresent
 
   ## alertmanager priorityClassName
@@ -176,7 +176,8 @@ alertmanager:
   ## Node labels for alertmanager pod assignment
   ## Ref: https://kubernetes.io/docs/user-guide/node-selection/
   ##
-  nodeSelector: {}
+  nodeSelector:       # helmer
+    prometheus: "yes" # helmer
 
   ## Pod affinity
   ##
@@ -254,6 +255,11 @@ alertmanager:
     #    release: "stable"
     #  matchExpressions:
     #    - { key: environment, operator: In, values: [ dev ] }
+
+    ## Persistent Volume Name
+    ## Useful if Persistent Volumes have been provisioned in advance and you want to use a specific one
+    ##
+    # volumeName: ""
 
   emptyDir:
     ## alertmanager emptyDir volume size limit
@@ -348,6 +354,9 @@ alertmanager:
     runAsGroup: 65534
     fsGroup: 65534
 
+  ## Security context to be added to alertmanager container
+  containerSecurityContext: {}
+
   service:
     annotations: {}
     labels: {}
@@ -412,6 +421,8 @@ configmapReload:
       #   configMap: prometheus-alerts
       #   readOnly: true
 
+    ## Security context to be added to configmap-reload container
+    containerSecurityContext: {}
 
     ## configmap-reload resource requests and limits
     ## Ref: http://kubernetes.io/docs/user-guide/compute-resources/
@@ -452,6 +463,8 @@ configmapReload:
       #   configMap: prometheus-alerts
       #   readOnly: true
 
+    ## Security context to be added to configmap-reload container
+    containerSecurityContext: {}
 
     ## configmap-reload resource requests and limits
     ## Ref: http://kubernetes.io/docs/user-guide/compute-resources/
@@ -493,7 +506,7 @@ nodeExporter:
   ##
   image:
     repository: quay.io/prometheus/node-exporter
-    tag: v1.3.0
+    tag: v1.3.1
     pullPolicy: IfNotPresent
 
   ## Specify if a Pod Security Policy for node-exporter must be created
@@ -548,11 +561,15 @@ nodeExporter:
   ## Node tolerations for node-exporter scheduling to nodes with taints
   ## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   ##
-  tolerations: []
-    # - key: "key"
-    #   operator: "Equal|Exists"
-    #   value: "value"
-    #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
+  tolerations:                                # helmer
+    - key: node.kubernetes.io/not-ready       # helmer
+      operator: Exists                        # helmer
+      effect: NoExecute                       # helmer
+      tolerationSeconds: 10                   # helmer
+    - key: node.kubernetes.io/unreachable     # helmer
+      operator: Exists                        # helmer
+      effect: NoExecute                       # helmer
+      tolerationSeconds: 10                   # helmer
 
   ## Node labels for node-exporter pod assignment
   ## Ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -585,7 +602,9 @@ nodeExporter:
     requests:           # helmer
       cpu: 100m         # helmer
       memory: 512Mi     # helmer
-
+  container:
+    securityContext:
+      allowPrivilegeEscalation: false
   # Custom DNS configuration to be added to node-exporter pods
   dnsConfig: {}
     # nameservers:
@@ -613,7 +632,7 @@ nodeExporter:
 
     # Exposed as a headless service:
     # https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
-    clusterIP: None
+    clusterIP: ""
 
     ## List of IP addresses at which the node-exporter service is available
     ## Ref: https://kubernetes.io/docs/user-guide/services/#external-ips
@@ -671,7 +690,7 @@ server:
   ##
   image:
     repository: quay.io/prometheus/prometheus
-    tag: v2.34.0
+    tag: v2.36.2
     pullPolicy: IfNotPresent
 
   ## prometheus server priorityClassName
@@ -737,7 +756,7 @@ server:
   global:
     ## How frequently to scrape targets by default
     ##
-    scrape_interval: 15s  # helmer
+    scrape_interval: 20s  # helmer
     ## How long until a scrape request times out
     ##
     scrape_timeout: 10s
@@ -875,7 +894,8 @@ server:
   ## Node labels for Prometheus server pod assignment
   ## Ref: https://kubernetes.io/docs/user-guide/node-selection/
   ##
-  nodeSelector: {}
+  nodeSelector:       # helmer
+    prometheus: "yes" # helmer
 
   ## Pod affinity
   ##
@@ -905,6 +925,10 @@ server:
     ##
     accessModes:
       - ReadWriteOnce
+
+    ## Prometheus server data Persistent Volume labels
+    ##
+    labels: {}
 
     ## Prometheus server data Persistent Volume annotations
     ##
@@ -953,6 +977,11 @@ server:
     #    release: "stable"
     #  matchExpressions:
     #    - { key: environment, operator: In, values: [ dev ] }
+
+    ## Persistent Volume Name
+    ## Useful if Persistent Volumes have been provisioned in advance and you want to use a specific one
+    ##
+    # volumeName: ""
 
   emptyDir:
     ## Prometheus server emptyDir volume size limit
@@ -1087,6 +1116,9 @@ server:
     runAsGroup: 65534
     fsGroup: 65534
 
+  ## Security context to be added to server container
+  containerSecurityContext: {}
+
   service:
     ## If false, no Service will be created for the Prometheus server
     ##
@@ -1128,8 +1160,24 @@ server:
   ##
   retention: "1h"  # helmer
 
-  ## Array of extra Kubernetes manifests, if you want to deploy
+  ## Array of extra Kubernetes manifests, in form of YAML object,
+  ## if you want to deploy
   extraObjects: []
+  # - apiVersion: v1
+  #   kind: ConfigMap
+  #   metadata:
+  #     name: '{{ template "prometheus.name" . }}-extra-config'
+
+  ## Array of extra Kubernetes manifest, in form of template string,
+  ## if you want to deploy
+  extraTemplates: []
+  # - |
+  #   apiVersion: v1
+  #   kind: ConfigMap
+  #   metadata:
+  #     name: extra-config
+  #     labels:
+  #   {{- include "prometheus.server.labels" . | nindent 4 }}
 
 pushgateway:
   ## If false, pushgateway will not be installed
@@ -1149,7 +1197,7 @@ pushgateway:
   ##
   image:
     repository: prom/pushgateway
-    tag: v1.4.2
+    tag: v1.4.3
     pullPolicy: IfNotPresent
 
   ## pushgateway priorityClassName
@@ -1294,6 +1342,9 @@ pushgateway:
     runAsUser: 65534
     runAsNonRoot: true
 
+  ## Security context to be added to push-gateway container
+  containerSecurityContext: {}
+
   service:
     annotations:
       prometheus.io/probe: pushgateway
@@ -1364,6 +1415,10 @@ pushgateway:
     ##
     subPath: ""
 
+    ## Persistent Volume Name
+    ## Useful if Persistent Volumes have been provisioned in advance and you want to use a specific one
+    ##
+    # volumeName: ""
 
 ## alertmanager ConfigMap entries
 ##
@@ -1592,7 +1647,7 @@ serverFiles:
           - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
             action: replace
             target_label: __address__
-            regex: ([^:]+)(?::\d+)?;(\d+)
+            regex: (.+?)(?::\d+)?;(\d+)
             replacement: $1:$2
           - action: labelmap
             regex: __meta_kubernetes_service_annotation_prometheus_io_param_(.+)
@@ -1647,7 +1702,7 @@ serverFiles:
           - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
             action: replace
             target_label: __address__
-            regex: ([^:]+)(?::\d+)?;(\d+)
+            regex: (.+?)(?::\d+)?;(\d+)
             replacement: $1:$2
           - action: labelmap
             regex: __meta_kubernetes_service_annotation_prometheus_io_param_(.+)
@@ -1742,7 +1797,7 @@ serverFiles:
             regex: (.+)
           - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
             action: replace
-            regex: ([^:]+)(?::\d+)?;(\d+)
+            regex: (.+?)(?::\d+)?;(\d+)
             replacement: $1:$2
             target_label: __address__
           - action: labelmap
@@ -1794,7 +1849,7 @@ serverFiles:
             regex: (.+)
           - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
             action: replace
-            regex: ([^:]+)(?::\d+)?;(\d+)
+            regex: (.+?)(?::\d+)?;(\d+)
             replacement: $1:$2
             target_label: __address__
           - action: labelmap
@@ -1846,3 +1901,13 @@ networkPolicy:
 
 # Force namespace of namespaced resources
 forceNamespace: null
+
+# Extra manifests to deploy as an array
+extraManifests: []
+  # - apiVersion: v1
+  #   kind: ConfigMap
+  #   metadata:
+  #   labels:
+  #     name: prometheus-extra
+  #   data:
+  #     extra-data: "value"

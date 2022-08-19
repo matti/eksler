@@ -129,7 +129,8 @@ extraVolumeMounts: []
 
 extraVolumes: []
 
-nodeSelector: {}
+nodeSelector:     # helmer
+  cluster: "yes"  # helmer
 
 tolerations:                                # helmer
   - key: node.kubernetes.io/not-ready       # helmer

@@ -96,7 +96,7 @@ cloudWatch:
   logStreamPrefix: # helmer
   logKey: "log"
   logFormat:
-  logRetentionDays: 7
+  logRetentionDays: 7 # helmer
   roleArn:
   autoCreateGroup: true
   endpoint:
@@ -105,7 +105,7 @@ cloudWatch:
   #   ...
 
 firehose:
-  enabled: false # helmer
+  enabled: false # helmer: disable firehose
   match: "*"
   region: "${REGION}"  # helmer
   deliveryStream: "my-stream"
@@ -117,7 +117,7 @@ firehose:
   #   ...
 
 kinesis:
-  enabled: false # helmer
+  enabled: false # helmer: disable kinesis
   match: "*"
   region: "${REGION}"  # helmer
   stream: "my-kinesis-stream-name"
@@ -139,7 +139,7 @@ kinesis:
   #   ...
 
 elasticsearch:
-  enabled: false  # helmer
+  enabled: false  # helmer: disable elasticsearch
   match: "*"
   host:
   awsRegion: "${REGION}"  # helmer
@@ -173,13 +173,24 @@ resources:
 ## Assign a PriorityClassName to pods if set
 # priorityClassName: system-node-critical
 
-updateStrategy:
-  type: RollingUpdate
+updateStrategy:         # helmer
+  type: RollingUpdate   # helmer
+  rollingUpdate:        # helmer
+    maxSurge: 0         # helmer
+    maxUnavailable: 1   # helmer
 
 
 nodeSelector: {}
 
-tolerations:
+tolerations:                                # helmer
+  - key: node.kubernetes.io/not-ready       # helmer
+    operator: Exists                        # helmer
+    effect: NoExecute                       # helmer
+    tolerationSeconds: 10                   # helmer
+  - key: node.kubernetes.io/unreachable     # helmer
+    operator: Exists                        # helmer
+    effect: NoExecute                       # helmer
+    tolerationSeconds: 10                   # helmer
 
 
 affinity: {}

@@ -23,7 +23,7 @@ spec:
         app: whoami
     spec:
       nodeSelector:
-        test: "yes"
+        bot: "yes"
       containers:
         - name: whoami
           image: jwilder/whoami
