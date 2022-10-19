@@ -234,7 +234,7 @@ controller:
   # -- Affinity and anti-affinity rules for server scheduling to nodes
   ## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
   ##
-  affinity: {}
+  affinity:
     # # An example of preferred pod anti-affinity, weight is in the range 1-100
     # podAntiAffinity:
     #   preferredDuringSchedulingIgnoredDuringExecution:
@@ -257,34 +257,36 @@ controller:
     #       topologyKey: kubernetes.io/hostname
 
     # # An example of required pod anti-affinity
-    # podAntiAffinity:
-    #   requiredDuringSchedulingIgnoredDuringExecution:
-    #   - labelSelector:
-    #       matchExpressions:
-    #       - key: app.kubernetes.io/name
-    #         operator: In
-    #         values:
-    #         - ingress-nginx
-    #       - key: app.kubernetes.io/instance
-    #         operator: In
-    #         values:
-    #         - ingress-nginx
-    #       - key: app.kubernetes.io/component
-    #         operator: In
-    #         values:
-    #         - controller
-    #     topologyKey: "kubernetes.io/hostname"
+    podAntiAffinity:                                    # helmer
+      requiredDuringSchedulingIgnoredDuringExecution:   # helmer
+      - labelSelector:                                  # helmer
+          matchExpressions:                             # helmer
+          - key: app.kubernetes.io/name                 # helmer
+            operator: In                                # helmer
+            values:                                     # helmer
+            - ingress-nginx                             # helmer
+          - key: app.kubernetes.io/instance             # helmer
+            operator: In                                # helmer
+            values:                                     # helmer
+            - ingress-nginx-1                           # helmer
+          - key: app.kubernetes.io/component            # helmer
+            operator: In                                # helmer
+            values:                                     # helmer
+            - controller                                # helmer
+        topologyKey: "kubernetes.io/hostname"           # helmer
 
   # -- Topology spread constraints rely on node labels to identify the topology domain(s) that each Node is in.
   ## Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
   ##
-  topologySpreadConstraints:                          # helmer
-    - maxSkew: 1                                      # helmer
-      topologyKey: topology.kubernetes.io/zone        # helmer
-      whenUnsatisfiable: DoNotSchedule                # helmer
-      labelSelector:                                  # helmer
-        matchLabels:                                  # helmer
-          app.kubernetes.io/instance: ingress-nginx   # helmer
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx         # helmer
+          app.kubernetes.io/instance: ingress-nginx-1   # helmer
+          app.kubernetes.io/component: controller       # helmer
 
   # -- `terminationGracePeriodSeconds` to avoid killing pods before we are ready
   ## wait up to five minutes for the drain of connections
@@ -362,7 +364,7 @@ controller:
       cpu: 1          # helmer
       memory: 128Mi   # helmer
     requests:         # helmer
-      cpu: 100m       # helmer
+      cpu: 50m        # helmer
       memory: 128Mi   # helmer
 
   # Mutually exclusive with keda autoscaling

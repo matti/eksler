@@ -164,10 +164,10 @@ serviceAccount:
 
 resources:
   limits:
-    cpu: 100m       # helmer
+    cpu: 1          # helmer
     memory: 512Mi   # helmer
   requests:
-    cpu: 100m       # helmer
+    cpu: 50m        # helmer
     memory: 256Mi   # helmer
 
 ## Assign a PriorityClassName to pods if set

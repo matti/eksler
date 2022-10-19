@@ -2,7 +2,7 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-replicaCount: 2
+replicaCount: 3  # helmer
 
 image:
   repository: 602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller
@@ -57,7 +57,7 @@ resources:          # helmer
     cpu: 1          # helmer
     memory: 128Mi   # helmer
   requests:         # helmer
-    cpu: 100m       # helmer
+    cpu: 50m        # helmer
     memory: 128Mi   # helmer
 
 # priorityClassName specifies the PriorityClass to indicate the importance of controller pods
@@ -85,7 +85,7 @@ affinity:                                           # helmer
             - key: "app.kubernetes.io/instance"     # helmer
               operator: In                          # helmer
               values:                               # helmer
-                - "aws-load-balancer-controller"    # helmer
+                - "aws-load-balancer-controller-1"  # helmer
         topologyKey: "kubernetes.io/hostname"       # helmer
 
 updateStrategy:         # helmer

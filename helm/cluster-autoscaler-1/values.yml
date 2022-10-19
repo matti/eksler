@@ -171,7 +171,7 @@ extraArgs:
   status-config-map-name: cluster-autoscaler-status         # helmer
   # leader-elect: true
   # leader-elect-resource-lock: endpoints
-  # skip-nodes-with-local-storage: true
+  skip-nodes-with-local-storage: false                      # helmer
   expander: most-pods                                       # helmer
   # scale-down-enabled: true
   # balance-similar-node-groups: true
@@ -183,7 +183,7 @@ extraArgs:
   scale-down-delay-after-add: 5m                            # helmer
   # scale-down-delay-after-delete: 0s
   scale-down-delay-after-failure: 1m                        # helmer
-  scale-down-unneeded-time: 1m                              # helmer
+  scale-down-unneeded-time: 15s                             # helmer
   # skip-nodes-with-system-pods: true
   # balancing-ignore-label_1: first-label-to-ignore
   # balancing-ignore-label_2: second-label-to-ignore
@@ -297,7 +297,7 @@ rbac:
     automountServiceAccountToken: true
 
 # replicaCount -- Desired number of pods
-replicaCount: 2  # helmer
+replicaCount: 3  # helmer
 
 # resources -- Pod resource requests and limits.
 resources:            # helmer
@@ -305,7 +305,7 @@ resources:            # helmer
     cpu: 1            # helmer
     memory: 512Mi     # helmer
   requests:           # helmer
-    cpu: 100m         # helmer
+    cpu: 50m          # helmer
     memory: 512Mi     # helmer
 
 # securityContext -- [Security context for pod](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
@@ -380,13 +380,13 @@ tolerations:                                # helmer
     tolerationSeconds: 10                   # helmer
 
 # topologySpreadConstraints -- You can use topology spread constraints to control how Pods are spread across your cluster among failure-domains such as regions, zones, nodes, and other user-defined topology domains. (requires Kubernetes >= 1.19).
-topologySpreadConstraints:                              # helmer
-  - maxSkew: 1                                          # helmer
-    topologyKey: topology.kubernetes.io/zone            # helmer
-    whenUnsatisfiable: DoNotSchedule                    # helmer
-    labelSelector:                                      # helmer
-      matchLabels:                                      # helmer
-        app.kubernetes.io/instance: cluster-autoscaler  # helmer
+topologySpreadConstraints:                                # helmer
+  - maxSkew: 1                                            # helmer
+    topologyKey: topology.kubernetes.io/zone              # helmer
+    whenUnsatisfiable: ScheduleAnyway                     # helmer
+    labelSelector:                                        # helmer
+      matchLabels:                                        # helmer
+        app.kubernetes.io/instance: cluster-autoscaler-1  # helmer
 
 # updateStrategy -- [Deployment update strategy](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy)
 updateStrategy:               # helmer

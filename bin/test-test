@@ -80,8 +80,8 @@ export CURLOPT_DNS_CACHE_TIMEOUT=1
   while true; do
     lb_hostname=$(
       kubectl get service -n eksler-test-1 whoami-lb \
-          --output=jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-    ) && break
+          --output=jsonpath='{.status.loadBalancer.ingress[0].hostname}' || true
+    ) && [[ "$lb_hostname" != "" ]] && break
 
     echo "waiting for lb hostname"
     sleep 5
@@ -90,9 +90,9 @@ export CURLOPT_DNS_CACHE_TIMEOUT=1
   echo "testing lb hostname: ${lb_hostname}"
 
   while true; do
-    curl --max-time 3 -fsL "$lb_hostname" && break
-    echo "retry"
-    sleep 5
+    curl --max-time 3 -fsL "${lb_hostname}" && break
+    echo "retry curl --max-time 3 -fsL ${lb_hostname}"
+    sleep 10
   done
 
   echo "OK"
@@ -102,18 +102,18 @@ export CURLOPT_DNS_CACHE_TIMEOUT=1
   while true; do
     ingress_hostname=$(
       kubectl get ingress -n eksler-test-1 whoami \
-        --output=jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-    ) && break
+        --output=jsonpath='{.status.loadBalancer.ingress[0].hostname}' || true
+    ) && [[ "$ingress_hostname" != "" ]] && break
 
-    echo "waiting for ingress_hostname"
+    echo "waiting for ingress hostname"
     sleep 5
   done
 
-  echo "testing ingress hostname: ${lb_hostname}"
+  echo "testing ingress hostname: ${ingress_hostname}"
   while true; do
-    curl --max-time 3 -fsL -H 'Host: todo' "$ingress_hostname" && break
-    echo retry
-    sleep 5
+    curl --max-time 3 -fsL -H 'Host: todo' "${ingress_hostname}" && break
+    echo "retry: curl --max-time 3 -fsL -H 'Host: todo' ${ingress_hostname}"
+    sleep 10
   done
   echo "OK"
 ) 2>&1 | sed -le "s#^#ingress: #;" &

@@ -62,6 +62,7 @@ POOLS="bot-1-pre bot-2-pre bot-3-pre" POOL_REFRESH=no bin/main eu-north-1 eka-1 
 - <https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.7/grpc_health_probe-linux-amd64>
 - call ec2-instance-selector to fetch a list and use it --> deprecate eksctl instance selector
 - if only 2 zones are available during cluster creation time, those will be the zones (?)
+- metrics server has emptydir which prevents ca remove --> "fixed" by ignoring emptydirs in cluster-autoscaler
 
 ## notes
 

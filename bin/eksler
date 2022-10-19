@@ -209,7 +209,8 @@ case "${subcommand}" in
         echo "$version"
       ;;
       delete)
-        $0 managednodegroup delete-all "$REGION" "$CLUSTER_NAME"
+        # true: allow re-call of delete even when no managed nodegroups exist
+        $0 managednodegroup delete-all "$REGION" "$CLUSTER_NAME" || true
 
         while true; do
           $0 cluster get "$REGION" "$CLUSTER_NAME" || break
@@ -303,18 +304,45 @@ kubernetesNetworkConfig:
       kubeconfig:contents)
         cat "$($0 cluster kubeconfig "$REGION" "$CLUSTER_NAME")"
       ;;
-      delete-loadbalancers)
-        if [[ "${5:-}" = "" ]]; then
+      get-ingresses|get-loadbalancers|delete-ingresses|delete-loadbalancers)
+        namespace=${5:-}
+        if [[ "${namespace}" = "" ]]; then
           namespace_opt="--all-namespaces"
         else
-          namespace_opt="-n $5"
+          namespace_opt="-n ${namespace}"
         fi
 
-        while true; do
-          kubectl get svc $namespace_opt -o=jsonpath='{.items[?(@.spec.type=="LoadBalancer")]}' | kubectl delete -f - && break
+        case "${subsubcommand}" in
+          get-ingresses)
+            while true; do
+              # specifying type returns empty when nothing found, which is desired
+              kubectl get ingress $namespace_opt -o=jsonpath='{.items[?(@.spec.type=="Ingress")]}' && break
+              sleep 1
+            done
+          ;;
+          get-loadbalancers)
+            while true; do
+              kubectl get svc $namespace_opt -o=jsonpath='{.items[?(@.spec.type=="LoadBalancer")]}' && break
+              sleep 1
+            done
+          ;;
+          delete-ingresses)
+            while true; do
+              ingresses=$($0 cluster get-ingresses "$REGION" "$CLUSTER_NAME" "$namespace")
+              [[ "$ingresses" == "" ]] && break
 
-          sleep 1
-        done
+              echo "$ingresses" | kubectl delete -f - || true
+            done
+          ;;
+          delete-loadbalancers)
+            while true; do
+              loadbalancers=$($0 cluster get-loadbalancers "$REGION" "$CLUSTER_NAME" "$namespace")
+              [[ "$loadbalancers" == "" ]] && break
+
+              echo "$loadbalancers" | kubectl delete -f - || true
+            done
+          ;;
+        esac
       ;;
       kubectl)
         exec kubectl "${@:5}"
@@ -583,7 +611,7 @@ managedNodeGroups:
         autoScaler: true
         imageBuilder: true
         ebs: true
-        albIngress: true
+        awsLoadBalancerController: true
         cloudWatch: true
     instanceTypes: $instances_indented
     preBootstrapCommands:

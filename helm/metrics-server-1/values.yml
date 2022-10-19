@@ -59,7 +59,7 @@ hostNetwork:
   # if you use Weave network on EKS
   enabled: false
 
-replicas: 2      # helmer
+replicas: 3             # helmer
 
 updateStrategy:         # helmer
   type: RollingUpdate   # helmer
@@ -69,9 +69,9 @@ updateStrategy:         # helmer
 
 podDisruptionBudget:
   # https://kubernetes.io/docs/tasks/run-application/configure-pdb/
-  enabled: false
+  enabled: true         # helmer
   minAvailable:
-  maxUnavailable:
+  maxUnavailable: 1     # helmer
 
 defaultArgs:
   - --cert-dir=/tmp
@@ -118,11 +118,11 @@ serviceMonitor:
   scrapeTimeout: 10s
 
 resources:            # helmer
-  requests:           # helmer
-    cpu: 100m         # helmer
-    memory: 128Mi     # helmer
   limits:             # helmer
     cpu: 1            # helmer
+    memory: 128Mi     # helmer
+  requests:           # helmer
+    cpu: 50m          # helmer
     memory: 128Mi     # helmer
 
 extraVolumeMounts: []
@@ -142,13 +142,17 @@ tolerations:                                # helmer
     effect: NoExecute                       # helmer
     tolerationSeconds: 10                   # helmer
 
-affinity:                                           # helmer
-  podAntiAffinity:                                  # helmer
-    requiredDuringSchedulingIgnoredDuringExecution: # helmer
-      - labelSelector:                              # helmer
-          matchExpressions:                         # helmer
-            - key: "app.kubernetes.io/name"         # helmer
-              operator: In                          # helmer
-              values:                               # helmer
-                - "metrics-server"                  # helmer
-        topologyKey: "kubernetes.io/hostname"       # helmer
+affinity:                                            # helmer
+  podAntiAffinity:                                   # helmer
+    requiredDuringSchedulingIgnoredDuringExecution:  # helmer
+      - topologyKey: "kubernetes.io/hostname"        # helmer
+        labelSelector:                               # helmer
+          matchExpressions:                          # helmer
+            - key: "app.kubernetes.io/name"          # helmer
+              operator: In                           # helmer
+              values:                                # helmer
+                - "metrics-server"                   # helmer
+            - key: "app.kubernetes.io/instance"      # helmer
+              operator: In                           # helmer
+              values:                                # helmer
+                - "metrics-server-1"                 # helmer

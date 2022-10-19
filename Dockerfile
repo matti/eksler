@@ -37,6 +37,8 @@ RUN mkdir /ghjk && cd /ghjk \
   && mv yq_linux_amd64 /usr/bin/yq \
   && rm -rf /ghjk
 
-RUN ln -s /app/bin/eksler /usr/local/bin/eksler
+# COPY --from=ghcr.io/matti/eksctl:7731355a3d6909fa144c5ca75b747726ca69c0b5 /usr/local/bin/eksctl /usr/local/bin
+# RUN ln -s /app/bin/eksler /usr/local/bin/eksler
+
 COPY . .
 ENTRYPOINT [ "bin/eksler" ]
