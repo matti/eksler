@@ -474,7 +474,7 @@ configmapReload:
 kubeStateMetrics:
   ## If false, kube-state-metrics sub-chart will not be installed
   ##
-  enabled: false  # helmer: disable kubeStateMetrics
+  enabled: true  # helmer: enable kubeStateMetrics
 
 ## kube-state-metrics sub-chart configurable values
 ## Please see https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-state-metrics
@@ -1075,7 +1075,8 @@ server:
       memory: 16Gi   # helmer: 5000 pods OOMKilled with 8Gi
     requests:        # helmer
       cpu: 50m       # helmer
-      memory: 16Gi   # helmer: 5000 pods OOMKilled with 8Gi
+      #memory: 16Gi   # helmer: 5000 pods OOMKilled with 8Gi
+      memory: 5Gi   # helmer: 5000 pods OOMKilled with 8Gi
 
   # Required for use in managed kubernetes clusters (such as AWS EKS) with custom CNI (such as calico),
   # because control-plane managed by AWS cannot communicate with pods' IP CIDR and admission webhooks are not working
@@ -1158,7 +1159,7 @@ server:
 
   ## Prometheus data retention period (default if not specified is 15 days)
   ##
-  retention: "1h"  # helmer
+  retention: "2h"  # helmer
 
   ## Array of extra Kubernetes manifests, in form of YAML object,
   ## if you want to deploy

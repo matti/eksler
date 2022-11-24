@@ -6,6 +6,7 @@ export REGION=$2
 export CLUSTER_NAME=$3
 mode=${4:-ensure}
 configurations=${*:5}
+
 [ "$configurations" = "" ] && configurations="\
   cluster-2-8-6-2-9 \
   prometheus-2-8-6-0-2 \
@@ -37,7 +38,7 @@ for configuration in $configurations; do
       --vcpus="$cpus" --memory="$mem" --volume-size="$disk_size" \
       --min-size="$min" --max-size="$max" \
       $label_opts
-  ) 2>&1 | sed -le "s#^#$name: #;" &
+  ) 2>&1 | sed -le "s#^#$name-$cpus-$mem: #;" &
 done
 
 wait

@@ -639,6 +639,8 @@ managedNodeGroups:
         while true; do
           >/dev/null 2>&1 kubectl get namespace eksler && break
           >/dev/null 2>&1 kubectl create namespace eksler && break
+
+          echo "could not create namespace eksler"
         done
 
         while true; do

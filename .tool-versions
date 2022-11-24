@@ -1,4 +1,4 @@
 kubectl 1.23.4
 helm 3.8.1
 awscli 2.5.0
-eksctl 0.109.0
+eksctl 0.116.0
